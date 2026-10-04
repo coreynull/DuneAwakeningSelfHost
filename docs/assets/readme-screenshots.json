@@ -2,18 +2,18 @@
   "assets": {
     "admin-ops.png": {
       "route": "ops",
-      "sha256": "c3da8e9ffae19075e32cd02429f98a21461e2ffb2df34a8371a9c01ec0108a64"
+      "sha256": "f6844b01ffd3053bb3cea3f5e58d656d337e43f90a896745bcf96b460d64a928"
     },
     "admin-overview.png": {
       "route": "overview",
-      "sha256": "bf0f29092385e4b32228680fb14ab0c3097bb42cafe9511f6511e059cadd841b"
+      "sha256": "e752d189203509d34bce4550a771ad5566c5e03b181956b850577d106971de17"
     }
   },
   "captureScriptSha256": "09a6e683522400f38511fd5bd169c8c44e4dc83dcd4f1c7d0b90c75186ce5143",
   "dataPolicy": "sanitized deterministic fixtures; no live server, player, credential, log, or host data",
   "generatedFrom": "admin/admin_panel.py",
   "schemaVersion": 1,
-  "sourceSha256": "68596319e5719866dff6bbd4f84e971917c0966d670d56f4de81ad19ebdfbc91",
+  "sourceSha256": "a8b69ac8c9f10912b8fddcdd4d4c68d6a4a92731c1687697c17f9669c85d4d6e",
   "viewport": {
     "deviceScaleFactor": 1,
     "height": 1000,
