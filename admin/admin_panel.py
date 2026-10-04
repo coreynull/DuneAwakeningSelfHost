@@ -19919,7 +19919,6 @@ INDEX = r"""<!doctype html>
         <h3>Support DASH</h3>
         <p class="muted">Help fund hosting and development.</p>
         <div class="supportLinks">
-          <a class="supportLink" href="https://www.paypal.com/donate/?business=donations%40snape.tech" target="_blank" rel="noopener noreferrer">PayPal</a>
           <a class="supportLink" href="https://ko-fi.com/snapetech" target="_blank" rel="noopener noreferrer">Ko-fi</a>
         </div>
       </aside>

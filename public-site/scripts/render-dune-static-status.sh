@@ -473,7 +473,7 @@ status_block="$(cat <<EOF
 </dl>
 <p class="status-detail">${status_detail_text}</p>
 <p class="status-updated">Last checked ${checked_at}.</p>
-<p class="status-support"><span>Support this server</span><a href="https://www.paypal.com/donate/?business=donations%40snape.tech" target="_blank" rel="noopener noreferrer">PayPal</a><a href="https://ko-fi.com/snapetech" target="_blank" rel="noopener noreferrer">Ko-fi</a></p>
+<p class="status-support"><span>Support this server</span><a href="https://ko-fi.com/snapetech" target="_blank" rel="noopener noreferrer">Ko-fi</a></p>
 </section>
 EOF
 )"
