@@ -14,7 +14,7 @@ for compose_file in "${compose_files[@]}"; do
   compose+=(-f "$compose_file")
 done
 compose+=(--env-file "$env_file")
-db=dune_sb_1_4_0_0
+db=dune_sb_1_5_3_0
 backup_dir=backups/partition-surgery
 
 read_env() {
