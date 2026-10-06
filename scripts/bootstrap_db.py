@@ -14,7 +14,7 @@ from ToolsDB.setupdb import setupdb
 HOST = "postgres"
 PORT = 5432
 ADMIN_DATABASE = "postgres"
-DATABASE = "dune_sb_1_4_0_0"
+DATABASE = os.environ.get("DUNE_GAME_DB_NAME", "dune_sb_1_4_0_0")
 USER = "dune"
 PASSWORD = os.environ.get("POSTGRES_DUNE_PASSWORD", "change-me-dune-db")
 SCHEMA = "dune"

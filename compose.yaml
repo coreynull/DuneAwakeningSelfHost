@@ -204,6 +204,7 @@ services:
     environment:
       PYTHONPATH: /root/PSQL
       POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
     command:
       - /workspace/scripts/bootstrap_db.py
     volumes:
@@ -242,6 +243,7 @@ services:
       Database__port: "5432"
       Database__user: dune
       Database__password: ${POSTGRES_DUNE_PASSWORD}
+      Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
       WORLD_NAME: ${WORLD_NAME}
@@ -293,6 +295,7 @@ services:
       Database__port: "5432"
       Database__user: dune
       Database__password: ${POSTGRES_DUNE_PASSWORD}
+      Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
       WORLD_NAME: ${WORLD_NAME}
       OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
