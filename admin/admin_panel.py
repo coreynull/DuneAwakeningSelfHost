@@ -21951,10 +21951,10 @@ async function ops(serial=loadSerial){
   refreshNetwork().catch(e => {
     document.querySelectorAll('[data-network-panel]').forEach(container => container.innerHTML = `<h2>Local and Upstream Network</h2><div class="dangerText">${esc(e.message)}</div>`);
   });
-  document.getElementById('scheduleAnnouncementBtn').addEventListener('click', e => runAction(e.currentTarget, 'Scheduling...', scheduleAnnouncement));
-  document.getElementById('cancelAnnouncementBtn').addEventListener('click', e => runAction(e.currentTarget, 'Canceling...', cancelAnnouncement));
-  document.getElementById('scheduleRestartBtn').addEventListener('click', e => runAction(e.currentTarget, 'Scheduling...', scheduleRestart));
-  document.getElementById('cancelRestartBtn').addEventListener('click', e => runAction(e.currentTarget, 'Canceling...', cancelRestart));
+  document.getElementById('scheduleAnnouncementBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Scheduling...', scheduleAnnouncement));
+  document.getElementById('cancelAnnouncementBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Canceling...', cancelAnnouncement));
+  document.getElementById('scheduleRestartBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Scheduling...', scheduleRestart));
+  document.getElementById('cancelRestartBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Canceling...', cancelRestart));
   document.getElementById('opsCalendarRefreshBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Refreshing...', () => ops(loadSerial)));
   document.getElementById('alertInboxRefreshBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Polling...', async()=>{ await api('/api/ops/alerts?refresh=true&limit=200'); await ops(loadSerial); }));
   document.querySelectorAll('[data-alert-ack]').forEach(button=>button.addEventListener('click',e=>runAction(e.currentTarget,'Acknowledging...',async()=>{
@@ -21972,11 +21972,14 @@ async function ops(serial=loadSerial){
     notify('Recommended maintenance window loaded into the exact-time planner','ok');
   }));
   const syncRestartPolicy = () => {
-    const targeted = restartTarget.value !== 'all';
-    if (targeted) restartUpdatePolicy.value = 'current';
-    restartUpdatePolicy.disabled = targeted;
+    const restartTargetEl = document.getElementById('restartTarget');
+    const restartUpdatePolicyEl = document.getElementById('restartUpdatePolicy');
+    if (!restartTargetEl || !restartUpdatePolicyEl) return;
+    const targeted = restartTargetEl.value !== 'all';
+    if (targeted) restartUpdatePolicyEl.value = 'current';
+    restartUpdatePolicyEl.disabled = targeted;
   };
-  restartTarget.addEventListener('change', syncRestartPolicy);
+  document.getElementById('restartTarget')?.addEventListener('change', syncRestartPolicy);
   syncRestartPolicy();
   resourceTimer = setInterval(() => {
     if (autoRefresh && current === 'ops') refreshResources().catch(() => {});
@@ -23302,13 +23305,13 @@ async function characters(serial=loadSerial){
   const lastQuery = sessionStorage.getItem('duneAdminCharacterQuery') || '';
   if (serial !== loadSerial) return;
   view.innerHTML = `<div class="pageStack"><div class="sectionHeader"><h2>Players</h2><div class="toolbar"><span class="pill">canonical online and offline roster</span><button id="refreshRosterBtn">Refresh roster</button><button data-jump="mutations" class="primary">Admin Actions</button><button data-jump="settings">Settings</button></div></div><div id="playerIdentityIntegrity"><div class="panelBand"><h2>Player Identity Integrity</h2><p class="muted">Inspecting account/player-state consistency…</p></div></div><div id="roster"></div><div class="panelBand"><h2>Player Search</h2><div class="row"><input id="q" placeholder="Character, Funcom ID, platform ID" value="${esc(lastQuery)}"><button id="characterSearchBtn" class="primary">Search</button><button id="characterListAllBtn">List all</button></div><div id="results"></div></div><div id="detail"></div></div>`;
-  document.getElementById('refreshRosterBtn').addEventListener('click', e => runAction(e.currentTarget, 'Refreshing...', loadCharacterRoster));
-  document.getElementById('characterSearchBtn').addEventListener('click', e => runAction(e.currentTarget, 'Searching...', searchCharacters));
-  document.getElementById('characterListAllBtn').addEventListener('click', () => {
+  document.getElementById('refreshRosterBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Refreshing...', loadCharacterRoster));
+  document.getElementById('characterSearchBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Searching...', searchCharacters));
+  document.getElementById('characterListAllBtn')?.addEventListener('click', () => {
     document.getElementById('q').value = '';
     searchCharacters().catch(e => reportClientError(e, 'List players'));
   });
-  document.getElementById('q').addEventListener('keydown', e => {
+  document.getElementById('q')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') searchCharacters().catch(err => reportClientError(err, 'Search players'));
   });
   await Promise.all([loadCharacterRoster(), loadPlayerIdentityIntegrity()]);
@@ -23668,11 +23671,11 @@ async function settings(serial=loadSerial){
   if (serial !== loadSerial) return;
   view.innerHTML = `<div class="pageStack"><div class="sectionHeader"><h2>Settings</h2><div class="toolbar"><button data-jump="security">Security</button><button data-jump="ops">Ops</button><button id="saveEnvBtn" class="primary">Save env settings</button></div></div><div class="panelBand"><p class="muted">These write <code>.env</code>, <code>config/director.ini</code>, or <code>config/UserGame.ini</code> with a backup under <code>backups/admin-panel</code>. Most service settings need the affected containers recreated before running processes pick them up.</p></div>${actionGrid([{tab:'ops',label:'Check live state'},{tab:'mutations',label:'Create backup',className:'primary'},{tab:'characters',label:'Inspect players'}])}${artificialExchangePanel(artificialExchange)}${envEditor(env)}<div class="twoCol">${playerOnlineStateEditor(onlineState)}${directorTransferEditor(transfer)}</div><div class="panelBand"><h2>Config Files</h2><select id="cfg">${Object.keys(configs).map(k=>`<option>${esc(k)}</option>`).join('')}</select><textarea id="cfgText"></textarea><p><button id="saveCfgBtn" class="primary">Save config with backup</button></p></div></div>`;
   window.configs = configs; selectCfg();
-  document.getElementById('cfg').addEventListener('change', selectCfg);
-  document.getElementById('saveEnvBtn').addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveEnv));
-  document.getElementById('savePlayerOnlineStateBtn').addEventListener('click', e => runAction(e.currentTarget, 'Saving...', savePlayerOnlineState));
-  document.getElementById('saveDirectorTransferBtn').addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveDirectorTransfer));
-  document.getElementById('saveCfgBtn').addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveCfg));
+  document.getElementById('cfg')?.addEventListener('change', selectCfg);
+  document.getElementById('saveEnvBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveEnv));
+  document.getElementById('savePlayerOnlineStateBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Saving...', savePlayerOnlineState));
+  document.getElementById('saveDirectorTransferBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveDirectorTransfer));
+  document.getElementById('saveCfgBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Saving...', saveCfg));
   wireArtificialExchangeControls();
 }
 
@@ -24213,16 +24216,16 @@ async function mutations(serial=loadSerial){
     await loadCharacterAdminDetails(option.value, serial);
     if (serial !== detailLoadSerial) return;
   };
-  document.getElementById('adminCharacterSelect').addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
-  document.getElementById('grantCharacterSelect').addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
-  document.getElementById('itemCharacterSelect').addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
+  document.getElementById('adminCharacterSelect')?.addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
+  document.getElementById('grantCharacterSelect')?.addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
+  document.getElementById('itemCharacterSelect')?.addEventListener('change', e => fillCharacter(e.target).catch(err => reportClientError(err, 'Load player admin detail')));
   const initialTarget = document.getElementById('adminCharacterSelect');
   const initialOption = Array.from(initialTarget.options).find(o => o.value && String(o.dataset.status || '').toLowerCase() === 'online') || Array.from(initialTarget.options).find(o => o.value);
   if (initialOption) {
     initialTarget.value = initialOption.value;
     fillCharacter(initialTarget).catch(err => reportClientError(err, 'Load default player admin detail'));
   }
-  document.getElementById('itemEditSelect').addEventListener('change', e => {
+  document.getElementById('itemEditSelect')?.addEventListener('change', e => {
     const option = e.target.selectedOptions?.[0];
     document.getElementById('itemEditId').value = e.target.value || '';
     if (option?.dataset.stack) document.getElementById('itemEditStack').value = option.dataset.stack;
@@ -24232,7 +24235,7 @@ async function mutations(serial=loadSerial){
     const choices = document.getElementById('itemAugmentOptions');
     if (choices) choices.innerHTML = '<span class="muted">Load compatibility for the newly selected item.</span>';
   });
-  document.getElementById('track').addEventListener('change', e => {
+  document.getElementById('track')?.addEventListener('change', e => {
     const level = e.target.selectedOptions?.[0]?.dataset.level || '';
     if (level) document.getElementById('xplevel').value = level;
   });
@@ -24243,7 +24246,7 @@ async function mutations(serial=loadSerial){
     const inventoryType = invSelect.selectedOptions?.[0]?.dataset.type || '';
     if (inventoryType) document.getElementById('grantInventoryType').value = inventoryType;
   });
-  document.getElementById('backupBtn').addEventListener('click', e => runAction(e.currentTarget, 'Backing up...', backup));
+  document.getElementById('backupBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Backing up...', backup));
   document.getElementById('runtimePreviewBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Previewing...', () => runPlayerRuntimeAction(true)));
   document.getElementById('runtimeExecuteBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Queuing...', () => runPlayerRuntimeAction(false)));
   document.getElementById('vehicleDbPreviewBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Previewing...', () => runVehicleDbAction(true)));
@@ -24364,38 +24367,38 @@ async function mutations(serial=loadSerial){
   };
   ['teleportX','teleportY','teleportZ'].forEach(id => document.getElementById(id)?.addEventListener('input', () => { renderOfflineTeleportMap(); invalidateTeleport(); }));
   ['teleportAccount','teleportPartition'].forEach(id => document.getElementById(id)?.addEventListener('change', invalidateTeleport));
-  document.getElementById('teleportPreviewBtn').addEventListener('click', e => runAction(e.currentTarget, 'Previewing...', () => offlineTeleport(true)));
-  document.getElementById('teleportExecuteBtn').addEventListener('click', e => runAction(e.currentTarget, 'Teleporting...', () => offlineTeleport(false)));
-  document.getElementById('teleportUseSelectedBtn').addEventListener('click', e => runAction(e.currentTarget, 'Loading position...', useSelectedTeleportPosition));
-  document.getElementById('slotInspectBtn').addEventListener('click', e => runAction(e.currentTarget, 'Inspecting...', async () => {
+  document.getElementById('teleportPreviewBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Previewing...', () => offlineTeleport(true)));
+  document.getElementById('teleportExecuteBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Teleporting...', () => offlineTeleport(false)));
+  document.getElementById('teleportUseSelectedBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Loading position...', useSelectedTeleportPosition));
+  document.getElementById('slotInspectBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Inspecting...', async () => {
     const result = await api('/api/admin/character-slots?account_id=' + encodeURIComponent(grantAccount.value));
     document.getElementById('slotResult').textContent = JSON.stringify(result, null, 2);
   }));
-  document.getElementById('slotPlanBtn').addEventListener('click', e => runAction(e.currentTarget, 'Planning...', async () => {
+  document.getElementById('slotPlanBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Planning...', async () => {
     const result = await api('/api/admin/character-slots/plan', {method:'POST', body:JSON.stringify({dry_run:true, account_id:grantAccount.value, action:slotAction.value, target_account_id:slotTargetAccount.value})});
     document.getElementById('slotResult').textContent = JSON.stringify(result, null, 2);
   }));
-  document.getElementById('slotExecuteBtn').addEventListener('click', e => runAction(e.currentTarget, 'Executing...', async () => {
+  document.getElementById('slotExecuteBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Executing...', async () => {
     if (!confirm('Execute native character swap? Both characters must be offline and a database backup will be created first.')) return;
     const result = await api('/api/admin/character-slots/execute', {method:'POST', body:JSON.stringify({dry_run:false, account_id:grantAccount.value, action:slotAction.value, target_account_id:slotTargetAccount.value, confirm:'SWAP CHARACTER'})});
     document.getElementById('slotResult').textContent = JSON.stringify(result, null, 2);
   }));
-  document.getElementById('currencyBtn').addEventListener('click', e => runAction(e.currentTarget, 'Applying...', currency));
-  document.getElementById('solariInventoryDryRunBtn').addEventListener('click', e => runAction(e.currentTarget, 'Planning...', () => grantSolari('inventory', true)));
-  document.getElementById('solariInventoryGrantBtn').addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantSolari('inventory', false)));
-  document.getElementById('solariBankDryRunBtn').addEventListener('click', e => runAction(e.currentTarget, 'Planning...', () => grantSolari('bank', true)));
-  document.getElementById('solariBankGrantBtn').addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantSolari('bank', false)));
-  document.getElementById('xpBtn').addEventListener('click', e => runAction(e.currentTarget, 'Applying...', xp));
-  document.getElementById('purchaseKeystoneBtn').addEventListener('click', e => runAction(e.currentTarget, 'Purchasing...', purchaseKeystone));
-  document.getElementById('resetKeystonesBtn').addEventListener('click', e => runAction(e.currentTarget, 'Resetting...', resetKeystones));
-  document.getElementById('dryRunItemBtn').addEventListener('click', e => runAction(e.currentTarget, 'Checking...', () => grantItem(true)));
-  document.getElementById('grantItemBtn').addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantItem(false)));
-  document.getElementById('loadGrantAugmentsBtn').addEventListener('click', e => runAction(e.currentTarget, 'Loading...', loadGrantAugments));
-  document.getElementById('loadItemAugmentsBtn').addEventListener('click', e => runAction(e.currentTarget, 'Loading...', loadItemAugments));
-  document.getElementById('previewItemAugmentsBtn').addEventListener('click', e => runAction(e.currentTarget, 'Checking...', () => applyItemAugments(true)));
-  document.getElementById('applyItemAugmentsBtn').addEventListener('click', e => runAction(e.currentTarget, 'Applying...', () => applyItemAugments(false)));
-  document.getElementById('setItemStackBtn').addEventListener('click', e => runAction(e.currentTarget, 'Saving...', setItemStack));
-  document.getElementById('deleteItemBtn').addEventListener('click', e => runAction(e.currentTarget, 'Deleting...', deleteItem));
+  document.getElementById('currencyBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Applying...', currency));
+  document.getElementById('solariInventoryDryRunBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Planning...', () => grantSolari('inventory', true)));
+  document.getElementById('solariInventoryGrantBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantSolari('inventory', false)));
+  document.getElementById('solariBankDryRunBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Planning...', () => grantSolari('bank', true)));
+  document.getElementById('solariBankGrantBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantSolari('bank', false)));
+  document.getElementById('xpBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Applying...', xp));
+  document.getElementById('purchaseKeystoneBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Purchasing...', purchaseKeystone));
+  document.getElementById('resetKeystonesBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Resetting...', resetKeystones));
+  document.getElementById('dryRunItemBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Checking...', () => grantItem(true)));
+  document.getElementById('grantItemBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Granting...', () => grantItem(false)));
+  document.getElementById('loadGrantAugmentsBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Loading...', loadGrantAugments));
+  document.getElementById('loadItemAugmentsBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Loading...', loadItemAugments));
+  document.getElementById('previewItemAugmentsBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Checking...', () => applyItemAugments(true)));
+  document.getElementById('applyItemAugmentsBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Applying...', () => applyItemAugments(false)));
+  document.getElementById('setItemStackBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Saving...', setItemStack));
+  document.getElementById('deleteItemBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Deleting...', deleteItem));
   if (pendingAdminAccountId) {
     const target = document.getElementById('adminCharacterSelect');
     target.value = pendingAdminAccountId;
@@ -24658,10 +24661,10 @@ async function deleteDetailItem(){
   document.getElementById('detailGrantResult').textContent = JSON.stringify(result, null, 2);
   return true;
 }
-document.getElementById('saveTokenBtn').addEventListener('click', saveToken);
-document.getElementById('clearTokenBtn').addEventListener('click', clearToken);
-document.getElementById('federatedLoginBtn').addEventListener('click',()=>{location.assign('/auth/login')});
-document.getElementById('federatedLogoutBtn').addEventListener('click',federatedLogout);
+document.getElementById('saveTokenBtn')?.addEventListener('click', saveToken);
+document.getElementById('clearTokenBtn')?.addEventListener('click', clearToken);
+document.getElementById('federatedLoginBtn')?.addEventListener('click',()=>{location.assign('/auth/login')});
+document.getElementById('federatedLogoutBtn')?.addEventListener('click',federatedLogout);
 wireGlobalAffordances();
 document.addEventListener('click', e => {
   const target = e.target.closest('[data-jump]');
