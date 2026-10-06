@@ -15263,15 +15263,15 @@ class Handler(BaseHTTPRequestHandler):
             select m.marker_hash_id,
                    m.dimension_index,
                    m.area_id,
-                   (m.marker).marker_type as marker_type,
-                   (m.marker).x::float8 as x,
-                   (m.marker).y::float8 as y,
-                   (m.marker).z::float8 as z,
+                   m.marker_type as marker_type,
+                   split_part(trim(both '()' from m.position::text), ',', 1)::float8 as x,
+                   split_part(trim(both '()' from m.position::text), ',', 2)::float8 as y,
+                   split_part(trim(both '()' from m.position::text), ',', 3)::float8 as z,
                    m.area_radius::float8 as area_radius
             from dune.markers m
             join dune.map_names mn on mn.map_name_id = m.map_name_id
             where mn.map_name = 'DeepDesert'
-            order by m.dimension_index, (m.marker).marker_type, m.marker_hash_id
+            order by m.dimension_index, m.marker_type, m.marker_hash_id
         """)
         shifting_rows = query("""
             select id, alpha::float8 as alpha, x::float8 as x, y::float8 as y,
