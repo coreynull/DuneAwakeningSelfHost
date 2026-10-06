@@ -15293,19 +15293,13 @@ class Handler(BaseHTTPRequestHandler):
                    null::integer as current_globally_primed, null::integer as current_globally_active,
                    null::boolean as is_spawning_active, null::float8 as global_spawn_weight
             where false
-            where map_name = 'DeepDesert'
-            order by dimension_index, field_type
         """)
         spice_availability_rows = query("""
-            select st.field_type,
-                   st.dimension_index,
-                   sa.server_id,
-                   sa.inactive_fields_of_type,
-                   sa.requested_spawned_of_type
-            from dune.spicefield_server_availability sa
-            join dune.spicefield_types st on st.spicefield_type_id = sa.spicefield_type_id
-            where st.map_name = 'DeepDesert'
-            order by st.dimension_index, st.field_type, sa.server_id
+            select null::text as field_type,
+                   null::text as server_id,
+                   null::integer as inactive_fields_of_type,
+                   null::integer as requested_spawned_of_type
+            where false
         """)
         shipwreck_spawner_rows = query("""
             select id,
