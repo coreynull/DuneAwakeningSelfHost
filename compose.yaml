@@ -767,6 +767,7 @@ services:
     working_dir: /workspace
     environment:
       ADMIN_WORKSPACE: /workspace
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-duneawakeningselfhost}
       DUNE_ADMIN_DB_HOST: ${DUNE_ADMIN_DB_HOST:-postgres}
       DUNE_ADMIN_DB_PORT: ${DUNE_ADMIN_DB_PORT:-5432}
       DUNE_ADMIN_DB_USER: dune

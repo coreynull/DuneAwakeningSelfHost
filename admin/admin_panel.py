@@ -24287,6 +24287,11 @@ async function mutations(serial=loadSerial){
     document.getElementById('characterBackupResult').textContent = JSON.stringify(data, null, 2);
     return data;
   };
+  const characterBackupResult = document.getElementById('characterBackupResult');
+  const characterBackupConfirm = document.getElementById('characterBackupConfirm');
+  const characterBackupSnapshot = document.getElementById('characterBackupSnapshot');
+  const characterBackupReason = document.getElementById('characterBackupReason');
+
   document.getElementById('characterBackupRefreshBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Refreshing...', refreshCharacterBackups));
   document.getElementById('characterBackupCapturePreviewBtn')?.addEventListener('click', e => runAction(e.currentTarget, 'Previewing...', async () => {
     characterBackupPlan = await api('/api/admin/character-backups/preview', {method:'POST', body:JSON.stringify({action:'capture', accountId:grantAccount.value})});
