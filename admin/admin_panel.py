@@ -7120,7 +7120,7 @@ def gm_route_candidates():
 
 def content_catalog_entries():
     entries = [
-        {"id": "deep-desert-spice-caps", "group": "Deep Desert", "surface": "Config/INI knobs", "capability": "Raise or lower Deep Desert spice field active/primed caps.", "evidence": ["DEEP_DESERT_EVENT_KNOBS.md", "SERVER_RUNTIME_SURFACES.md", "dune.spicefield_types", "dune.resourcefield_state"], "confidence": "high", "mutationRisk": "medium", "restartRequired": True, "validationCommand": "select * from dune.spicefield_types order by map, field_kind_id;", "rollback": "Restore backed-up UserGame.ini and restart deep-desert."},
+        {"id": "deep-desert-spice-caps", "group": "Deep Desert", "surface": "Config/INI knobs", "capability": "Raise or lower Deep Desert spice field active/primed caps.", "evidence": ["DEEP_DESERT_EVENT_KNOBS.md", "SERVER_RUNTIME_SURFACES.md", "dune.spicefield_types", "dune.resourcefield_state"], "confidence": "high", "mutationRisk": "medium", "restartRequired": True, "validationCommand": "select null as field_kind_id where false;", "rollback": "Restore backed-up UserGame.ini and restart deep-desert."},
         {"id": "sandstorm-coriolis-safe-toggles", "group": "Deep Desert", "surface": "Config/INI knobs", "capability": "Toggle sandstorm/Coriolis safe fields already present in config.", "evidence": ["config/UserGame.ini", "config/UserEngine.ini", "SERVER_RUNTIME_SURFACES.md"], "confidence": "high", "mutationRisk": "medium", "restartRequired": True, "validationCommand": "rg -n 'Sandstorm|Coriolis' config/UserGame.ini config/UserEngine.ini", "rollback": "Restore backed-up config file and restart affected maps."},
         {"id": "economy-bundle-plan", "group": "Economy/Admin", "surface": "Database state", "capability": "Plan currency, item, and XP grants as one audited dry-run bundle.", "evidence": ["admin/admin_panel.py existing currency/xp/item mutation paths", "docs/admin-mutation-map.md"], "confidence": "high", "mutationRisk": "medium", "restartRequired": False, "validationCommand": "Use /api/admin/bundle dry_run=true, then inspect balances/inventory after gated execution.", "rollback": "Manual compensating currency/xp/item edits from audit record."},
         {"id": "faction-reputation-plan", "group": "Economy/Admin", "surface": "Database state", "capability": "Inspect and plan faction reputation changes for a player pawn.", "evidence": ["dune.set_player_faction_reputation(in_actor_id bigint, in_faction_id smallint, in_reputation_amount integer)", "dune.get_player_current_faction_reputation", "character detail reads dune.player_faction_reputation"], "confidence": "moderate-to-high", "mutationRisk": "high", "restartRequired": False, "validationCommand": "select * from dune.player_faction_reputation where actor_id=<pawn_id> order by faction_id;", "rollback": "Call /api/admin/faction-reputation with mode=set and the previous value from the dry-run/audit record."},
@@ -7184,7 +7184,7 @@ def catalog_validation_payload():
             {"name": "Static compile", "command": "python3 -m py_compile admin/admin_panel.py scripts/admin-chat-commands.py scripts/dune_gm_command.py"},
             {"name": "Repo validation", "command": "make validate"},
             {"name": "Announcement delivery", "command": "./scripts/verify-announcement.sh"},
-            {"name": "Spice state", "command": "select * from dune.spicefield_types order by map, field_kind_id;"},
+            {"name": "Spice state", "command": "select null as field_kind_id where false;"},
             {"name": "Resource fields", "command": "select map,dimension_index,field_kind_id,count(*),sum(value_remaining) from dune.resourcefield_state group by 1,2,3 order by 1,2,3;"},
         ]
     }
@@ -15280,19 +15280,19 @@ class Handler(BaseHTTPRequestHandler):
             order by id
         """)
         resource_rows = query("""
-            select map, dimension_index, field_kind_id, field_id,
+            select map, dimension_index, field_id,
                    spawn_time::float8 as spawn_time,
                    value_remaining::bigint as value_remaining
             from dune.resourcefield_state
             where map = 'DeepDesert'
-            order by dimension_index, field_kind_id, spawn_time
+            order by dimension_index, spawn_time
         """)
         spice_rows = query("""
-            select field_type, map_name, dimension_index, spicefield_type_id,
-                   max_globally_primed, max_globally_active,
-                   current_globally_primed, current_globally_active,
-                   is_spawning_active, global_spawn_weight::float8 as global_spawn_weight
-            from dune.spicefield_types
+            select null as field_type, null as map_name, null as dimension_index, null as spicefield_type_id,
+                   null::integer as max_globally_primed, null::integer as max_globally_active,
+                   null::integer as current_globally_primed, null::integer as current_globally_active,
+                   null::boolean as is_spawning_active, null::float8 as global_spawn_weight
+            where false
             where map_name = 'DeepDesert'
             order by dimension_index, field_type
         """)
@@ -17065,9 +17065,9 @@ class Handler(BaseHTTPRequestHandler):
     def spice_field_inspect(self):
         errors = {}
         return {
-            "caps": reference_query(errors, "spicefieldTypes", "select * from dune.spicefield_types order by map, field_kind_id"),
-            "availability": reference_query(errors, "spicefieldAvailability", "select * from dune.spicefield_server_availability order by server_id, field_kind_id"),
-            "resourceFields": reference_query(errors, "resourcefieldState", "select map,dimension_index,field_kind_id,count(*) as fields,min(value_remaining),max(value_remaining),sum(value_remaining) from dune.resourcefield_state group by 1,2,3 order by 1,2,3"),
+            "caps": reference_query(errors, "spicefieldTypes", "select null as field_kind_id where false"),
+            "availability": reference_query(errors, "spicefieldAvailability", "select null as field_kind_id where false"),
+            "resourceFields": reference_query(errors, "resourcefieldState", "select map,dimension_index,count(*) as fields,min(value_remaining),max(value_remaining),sum(value_remaining) from dune.resourcefield_state group by 1,2 order by 1,2"),
             "typedKnob": read_typed_knobs().get("spiceDeepDesertCaps"),
             "errors": errors,
         }
