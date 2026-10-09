@@ -6688,10 +6688,10 @@ def run_update_host_helper(action):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:@+-]{1,255}", image):
         raise RuntimeError("DUNE_RESTART_COMPOSE_IMAGE is invalid")
     if action == "stage":
-        command = "apk add --no-cache bash coreutils util-linux >/dev/null && exec bash /workspace/scripts/update-steam-tool.sh /workspace/.env"
+        command = "apk add --no-cache bash coreutils util-linux python3 jq >/dev/null && exec bash /workspace/scripts/update-steam-tool.sh /workspace/.env"
         timeout = 2100
     else:
-        command = "apk add --no-cache bash coreutils util-linux >/dev/null && exec env ENV_FILE=/workspace/.env DUNE_RESTART_STEAM_UPDATE_MODE=none DUNE_RESTART_CHECK_STEAM_UPDATE=true bash /workspace/scripts/restart-target.sh all"
+        command = "apk add --no-cache bash coreutils util-linux python3 jq >/dev/null && exec env ENV_FILE=/workspace/.env DUNE_RESTART_STEAM_UPDATE_MODE=none DUNE_RESTART_CHECK_STEAM_UPDATE=true bash /workspace/scripts/restart-target.sh all"
         timeout = 3900
     helper_name = f"dune-update-readiness-{action}-{secrets.token_hex(8)}"
     body = {
