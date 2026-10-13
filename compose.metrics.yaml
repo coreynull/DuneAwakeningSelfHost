@@ -49,7 +49,7 @@ services:
     image: ${DUNE_METRICS_POSTGRES_EXPORTER_IMAGE:-quay.io/prometheuscommunity/postgres-exporter:v0.17.1}
     restart: unless-stopped
     environment:
-      DATA_SOURCE_URI: postgres:5432/dune_sb_1_4_0_0?sslmode=disable
+      DATA_SOURCE_URI: postgres:5432/dune_sb_1_5_3_0?sslmode=disable
       DATA_SOURCE_USER: dune
       DATA_SOURCE_PASS: ${POSTGRES_DUNE_PASSWORD}
       PG_EXPORTER_DISABLE_DEFAULT_METRICS: "false"
