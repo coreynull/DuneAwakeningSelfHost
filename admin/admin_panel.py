@@ -4271,6 +4271,8 @@ def read_autoscaler_state():
             state["modes"][service] = autoscaler_default_mode(service)
         if service in AUTOSCALER_SIMULATION_REQUIRED_SERVICES:
             state["modes"][service] = "always-on"
+        if service in AUTOSCALER_ALWAYS_ON_SERVICES:
+            state["modes"][service] = "always-on"
     return state
 
 
