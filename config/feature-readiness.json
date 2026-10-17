@@ -8,14 +8,26 @@
       "description": "Owner authentication, the tamper-evident audit ledger, and exact-body change contracts protect every governed write.",
       "documentation": "docs/audit-ledger.md",
       "primaryGate": "DUNE_ADMIN_AUDIT_LEDGER_ENABLED",
-      "gates": ["DUNE_ADMIN_REQUIRE_TOKEN", "DUNE_ADMIN_AUDIT_LEDGER_ENABLED", "DUNE_ADMIN_CHANGE_CONTRACTS_ENABLED", "DUNE_ADMIN_CHANGE_CONTRACTS_REQUIRED"],
-      "credentials": ["DUNE_ADMIN_TOKEN"],
+      "gates": [
+        "DUNE_ADMIN_REQUIRE_TOKEN",
+        "DUNE_ADMIN_AUDIT_LEDGER_ENABLED",
+        "DUNE_ADMIN_CHANGE_CONTRACTS_ENABLED",
+        "DUNE_ADMIN_CHANGE_CONTRACTS_REQUIRED"
+      ],
+      "credentials": [
+        "DUNE_ADMIN_TOKEN"
+      ],
       "files": [],
-      "services": ["admin-panel"],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "mutation-governance",
       "dependencies": [],
       "canary": "runtime-proven",
-      "remediation": {"surface": "security", "summary": "Repair the exact failed ledger, authentication, or change-contract check before enabling writes."}
+      "remediation": {
+        "surface": "security",
+        "summary": "Repair the exact failed ledger, authentication, or change-contract check before enabling writes."
+      }
     },
     {
       "id": "infrastructure-control",
@@ -24,14 +36,38 @@
       "description": "Project-confined service control, stateful-service separation, verified backups/restores, and staged updates are loaded.",
       "documentation": "docs/infrastructure-console.md",
       "primaryGate": "DUNE_ADMIN_SERVICE_CONTROL_ENABLED",
-      "gates": ["DUNE_ADMIN_SERVICE_CONTROL_ENABLED", "DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED", "DUNE_ADMIN_BACKUP_MUTATIONS_ENABLED", "DUNE_ADMIN_BACKUP_RESTORE_ENABLED", "DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED", "DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED", "DUNE_COMMAND_CONSOLE_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_SERVICE_CONTROL_ENABLED",
+        "DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED",
+        "DUNE_ADMIN_BACKUP_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_BACKUP_RESTORE_ENABLED",
+        "DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED",
+        "DUNE_COMMAND_CONSOLE_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "scripts/restart-target.sh", "minimumBytes": 1000}, {"path": "scripts/backup-state.sh", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "scripts/restart-target.sh",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "scripts/backup-state.sh",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "database",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Use the bounded service, backup, restore, and update panels; do not bypass post-start hooks."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Use the bounded service, backup, restore, and update panels; do not bypass post-start hooks."
+      }
     },
     {
       "id": "operational-evidence",
@@ -40,14 +76,54 @@
       "description": "Restore drills, SLOs, capacity evidence, desired state, change intelligence, response drills, deployment assurance, update readiness, and signed maintenance outcomes form one retained proof chain.",
       "documentation": "docs/deployment-assurance.md",
       "primaryGate": "DUNE_OPERATIONAL_SLO_ENABLED",
-      "gates": ["DUNE_RESTORE_DRILL_ENABLED", "DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED", "DUNE_OPERATIONAL_SLO_ENABLED", "DUNE_ADMIN_OPERATIONAL_SLO_MUTATIONS_ENABLED", "DUNE_CAPACITY_INTELLIGENCE_ENABLED", "DUNE_DESIRED_STATE_ENABLED", "DUNE_ADMIN_DESIRED_STATE_MUTATIONS_ENABLED", "DUNE_CHANGE_INTELLIGENCE_ENABLED", "DUNE_RESPONSE_DRILLS_ENABLED", "DUNE_DEPLOYMENT_ASSURANCE_ENABLED", "DUNE_UPDATE_READINESS_ENABLED"],
+      "gates": [
+        "DUNE_RESTORE_DRILL_ENABLED",
+        "DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED",
+        "DUNE_OPERATIONAL_SLO_ENABLED",
+        "DUNE_ADMIN_OPERATIONAL_SLO_MUTATIONS_ENABLED",
+        "DUNE_CAPACITY_INTELLIGENCE_ENABLED",
+        "DUNE_DESIRED_STATE_ENABLED",
+        "DUNE_ADMIN_DESIRED_STATE_MUTATIONS_ENABLED",
+        "DUNE_CHANGE_INTELLIGENCE_ENABLED",
+        "DUNE_RESPONSE_DRILLS_ENABLED",
+        "DUNE_DEPLOYMENT_ASSURANCE_ENABLED",
+        "DUNE_UPDATE_READINESS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "config/operational-slo.json", "minimumBytes": 100}, {"path": "config/capacity-intelligence.json", "minimumBytes": 100}, {"path": "config/desired-state.json", "minimumBytes": 100}, {"path": "config/change-intelligence.json", "minimumBytes": 100}, {"path": "admin/maintenance_outcomes.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "config/operational-slo.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/capacity-intelligence.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/desired-state.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/change-intelligence.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "admin/maintenance_outcomes.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "operational-evidence",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Open the failed evidence subsystem, preserve its ledger, and follow the generated deterministic response plan."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Open the failed evidence subsystem, preserve its ledger, and follow the generated deterministic response plan."
+      }
     },
     {
       "id": "readiness-regression-history",
@@ -56,14 +132,28 @@
       "description": "Every feature-state vector change is deduplicated, deployment-correlated, classified, and sealed into an append-only HMAC chain.",
       "documentation": "docs/feature-readiness.md",
       "primaryGate": "DUNE_FEATURE_READINESS_HISTORY_ENABLED",
-      "gates": ["DUNE_FEATURE_READINESS_HISTORY_ENABLED"],
+      "gates": [
+        "DUNE_FEATURE_READINESS_HISTORY_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/feature_readiness_history.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/feature_readiness_history.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "feature-readiness-history",
-      "dependencies": ["operational-evidence"],
+      "dependencies": [
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Preserve the database and HMAC key, verify backups, and restore the last known valid pair before recording more transitions."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Preserve the database and HMAC key, verify backups, and restore the last known valid pair before recording more transitions."
+      }
     },
     {
       "id": "rabbitmq-recovery-proof",
@@ -72,14 +162,33 @@
       "description": "Copied admin and game broker states boot under their original node identities in sequential, disposable, networkless containers with bounded resources and name-free topology proof.",
       "documentation": "docs/rabbitmq-restore-drills.md",
       "primaryGate": "DUNE_RABBITMQ_RESTORE_DRILL_ENABLED",
-      "gates": ["DUNE_RABBITMQ_RESTORE_DRILL_ENABLED", "DUNE_ADMIN_RABBITMQ_RESTORE_DRILL_EXECUTION_ENABLED"],
+      "gates": [
+        "DUNE_RABBITMQ_RESTORE_DRILL_ENABLED",
+        "DUNE_ADMIN_RABBITMQ_RESTORE_DRILL_EXECUTION_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/rabbitmq_restore_drill.py", "minimumBytes": 1000}, {"path": "scripts/rabbitmq-restore-drill.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/rabbitmq_restore_drill.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "scripts/rabbitmq-restore-drill.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "rabbitmq-restore-drill",
-      "dependencies": ["operational-evidence"],
+      "dependencies": [
+        "operational-evidence"
+      ],
       "canary": "operator-canary-pending",
-      "remediation": {"surface": "infrastructure", "summary": "Inspect the private recovery receipt, repair only the named backup/image/configuration failure, then repeat the isolated canary."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Inspect the private recovery receipt, repair only the named backup/image/configuration failure, then repeat the isolated canary."
+      }
     },
     {
       "id": "credential-lifecycle",
@@ -88,14 +197,32 @@
       "description": "Activation-aware credential presence, private permissions, material-change age, declared consumers, backup coverage, and a tamper-evident rotation history are loaded without returning values or fingerprints.",
       "documentation": "docs/credential-lifecycle.md",
       "primaryGate": "DUNE_CREDENTIAL_LIFECYCLE_ENABLED",
-      "gates": ["DUNE_CREDENTIAL_LIFECYCLE_ENABLED"],
+      "gates": [
+        "DUNE_CREDENTIAL_LIFECYCLE_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "config/credential-lifecycle.json", "minimumBytes": 1000}, {"path": "admin/credential_lifecycle.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "config/credential-lifecycle.json",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "admin/credential_lifecycle.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "credential-lifecycle",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "security", "summary": "Repair only the named source, permission, rotation, or backup finding; preserve ledger keys with their dependent history."}
+      "remediation": {
+        "surface": "security",
+        "summary": "Repair only the named source, permission, rotation, or backup finding; preserve ledger keys with their dependent history."
+      }
     },
     {
       "id": "adaptive-map-farm",
@@ -104,14 +231,37 @@
       "description": "Dynamic demand, warm retention, memory-aware eviction, evidence-qualified gradual retention, and measured just-in-time warm scheduling are active.",
       "documentation": "docs/anticipatory-map-warming.md",
       "primaryGate": "DUNE_AUTOSCALER_ENABLED",
-      "gates": ["DUNE_AUTOSCALER_ENABLED", "DUNE_ADMIN_AUTOSCALER_MUTATIONS_ENABLED", "DUNE_ADMIN_MEMORY_MUTATIONS_ENABLED", "DUNE_CAPACITY_INTELLIGENCE_ENABLED", "DUNE_CAPACITY_AUTO_APPLY_ENABLED", "DUNE_ADMIN_EVENT_EXECUTION_ENABLED"],
+      "gates": [
+        "DUNE_AUTOSCALER_ENABLED",
+        "DUNE_ADMIN_AUTOSCALER_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_MEMORY_MUTATIONS_ENABLED",
+        "DUNE_CAPACITY_INTELLIGENCE_ENABLED",
+        "DUNE_CAPACITY_AUTO_APPLY_ENABLED",
+        "DUNE_ADMIN_EVENT_EXECUTION_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "config/capacity-intelligence.json", "minimumBytes": 100}],
-      "services": ["admin-panel", "director", "gateway", "survival", "overmap"],
+      "files": [
+        {
+          "path": "config/capacity-intelligence.json",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "director",
+        "gateway",
+        "survival",
+        "overmap"
+      ],
       "probe": "autoscaler",
-      "dependencies": ["operational-evidence"],
+      "dependencies": [
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure:autoscaler", "summary": "Inspect the persisted profile, map modes, demand sources, warm schedules, memory floor, and last worker error."}
+      "remediation": {
+        "surface": "infrastructure:autoscaler",
+        "summary": "Inspect the persisted profile, map modes, demand sources, warm schedules, memory floor, and last worker error."
+      }
     },
     {
       "id": "player-impact-maintenance",
@@ -120,17 +270,32 @@
       "description": "Zero-inclusive aggregate population observations rank exact future maintenance windows and quantify expected disruption against the fixed daily baseline.",
       "documentation": "docs/player-impact-maintenance.md",
       "primaryGate": "DUNE_MAINTENANCE_PLANNER_ENABLED",
-      "gates": ["DUNE_MAINTENANCE_PLANNER_ENABLED"],
+      "gates": [
+        "DUNE_MAINTENANCE_PLANNER_ENABLED"
+      ],
       "credentials": [],
       "files": [
-        {"path": "admin/maintenance_planner.py", "minimumBytes": 1000},
-        {"path": "config/maintenance-planner.json", "minimumBytes": 100}
+        {
+          "path": "admin/maintenance_planner.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "config/maintenance-planner.json",
+          "minimumBytes": 100
+        }
       ],
-      "services": ["admin-panel"],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "maintenance-planner",
-      "dependencies": ["operational-evidence"],
+      "dependencies": [
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "operations", "summary": "Inspect collector coverage and policy bounds; keep using the named fallback until enough complete windows exist."}
+      "remediation": {
+        "surface": "operations",
+        "summary": "Inspect collector coverage and policy bounds; keep using the named fallback until enough complete windows exist."
+      }
     },
     {
       "id": "alert-inbox",
@@ -139,14 +304,31 @@
       "description": "Authoritative Prometheus alert polling, durable deduplication, re-fire generations, operator-attributed acknowledgement, and transition-only signed delivery are active.",
       "documentation": "docs/alert-inbox.md",
       "primaryGate": "DUNE_ALERT_INBOX_ENABLED",
-      "gates": ["DUNE_ALERT_INBOX_ENABLED", "DUNE_ADMIN_ALERT_INBOX_MUTATIONS_ENABLED"],
+      "gates": [
+        "DUNE_ALERT_INBOX_ENABLED",
+        "DUNE_ADMIN_ALERT_INBOX_MUTATIONS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/alert_inbox.py", "minimumBytes": 1000}],
-      "services": ["admin-panel", "prometheus"],
+      "files": [
+        {
+          "path": "admin/alert_inbox.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "prometheus"
+      ],
       "probe": "alert-inbox",
-      "dependencies": ["metrics-history", "mutation-governance"],
+      "dependencies": [
+        "metrics-history",
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "operations", "summary": "Repair the named Prometheus poll or private SQLite state failure; never treat a failed poll or acknowledgement as source resolution."}
+      "remediation": {
+        "surface": "operations",
+        "summary": "Repair the named Prometheus poll or private SQLite state failure; never treat a failed poll or acknowledgement as source resolution."
+      }
     },
     {
       "id": "peer-watch",
@@ -155,14 +337,30 @@
       "description": "The checked-in parity catalogue is machine-read, every allowlisted primary repository is polled, and revision drift/error transitions are retained and alertable.",
       "documentation": "docs/peer-watch.md",
       "primaryGate": "DUNE_PEER_WATCH_ENABLED",
-      "gates": ["DUNE_PEER_WATCH_ENABLED"],
+      "gates": [
+        "DUNE_PEER_WATCH_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/peer_watch.py", "minimumBytes": 1000}, {"path": "docs/ecosystem-feature-parity-audit.md", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/peer_watch.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "docs/ecosystem-feature-parity-audit.md",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "peer-watch",
       "dependencies": [],
       "canary": "runtime-proven",
-      "remediation": {"surface": "discovery", "summary": "Review drifted primary revisions against the pinned feature matrix; repair named source/API errors without changing pins blindly."}
+      "remediation": {
+        "surface": "discovery",
+        "summary": "Review drifted primary revisions against the pinned feature matrix; repair named source/API errors without changing pins blindly."
+      }
     },
     {
       "id": "metrics-history",
@@ -171,14 +369,29 @@
       "description": "Prometheus, node, container, database, RabbitMQ, and DASH-native collectors retain operational history.",
       "documentation": "docs/metrics.md",
       "primaryGate": "DUNE_METRICS_ENABLED",
-      "gates": ["DUNE_METRICS_ENABLED"],
+      "gates": [
+        "DUNE_METRICS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "compose.metrics.yaml", "minimumBytes": 100}],
-      "services": ["prometheus", "node-exporter", "cadvisor", "postgres-exporter"],
+      "files": [
+        {
+          "path": "compose.metrics.yaml",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "prometheus",
+        "node-exporter",
+        "cadvisor",
+        "postgres-exporter"
+      ],
       "probe": "metrics",
       "dependencies": [],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Load the metrics overlay and restore the exact failed collector or scrape target."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Load the metrics overlay and restore the exact failed collector or scrape target."
+      }
     },
     {
       "id": "offline-player-teleport",
@@ -187,14 +400,35 @@
       "description": "Fingerprint-bound persisted pawn movement uses Dune's native offline teleport function under dual Offline checks, transaction locks, a full backup, post-write transform verification, and a private receipt.",
       "documentation": "docs/offline-player-teleport.md",
       "primaryGate": "DUNE_ADMIN_OFFLINE_TELEPORT_ENABLED",
-      "gates": ["DUNE_ADMIN_MUTATIONS_ENABLED", "DUNE_ADMIN_OFFLINE_TELEPORT_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_OFFLINE_TELEPORT_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/offline_teleport.py", "minimumBytes": 1000}, {"path": "docs/offline-player-teleport.md", "minimumBytes": 1000}],
-      "services": ["admin-panel", "postgres"],
+      "files": [
+        {
+          "path": "admin/offline_teleport.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "docs/offline-player-teleport.md",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "postgres"
+      ],
       "probe": "offline-player-teleport",
-      "dependencies": ["mutation-governance", "operational-evidence"],
+      "dependencies": [
+        "mutation-governance",
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "mutations", "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact missing native function or failed pawn-move assertion, and preserve the Offline-only execution gate."}
+      "remediation": {
+        "surface": "mutations",
+        "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact missing native function or failed pawn-move assertion, and preserve the Offline-only execution gate."
+      }
     },
     {
       "id": "offline-player-life-recovery",
@@ -203,14 +437,35 @@
       "description": "Fingerprint-bound Dead-to-Alive persisted recovery uses Dune's native pawn/life-state function under an offline recheck, transaction locks, a full backup, post-write verification, and a private receipt.",
       "documentation": "docs/offline-player-life-state-recovery.md",
       "primaryGate": "DUNE_ADMIN_PLAYER_LIFE_RECOVERY_ENABLED",
-      "gates": ["DUNE_ADMIN_MUTATIONS_ENABLED", "DUNE_ADMIN_PLAYER_LIFE_RECOVERY_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_PLAYER_LIFE_RECOVERY_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/player_life_recovery.py", "minimumBytes": 1000}, {"path": "docs/offline-player-life-state-recovery.md", "minimumBytes": 1000}],
-      "services": ["admin-panel", "postgres"],
+      "files": [
+        {
+          "path": "admin/player_life_recovery.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "docs/offline-player-life-state-recovery.md",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "postgres"
+      ],
       "probe": "player-life-recovery",
-      "dependencies": ["mutation-governance", "operational-evidence"],
+      "dependencies": [
+        "mutation-governance",
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "mutations", "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact missing native function or failed Dead/Alive semantic assertion, and preserve the Offline-only execution gate."}
+      "remediation": {
+        "surface": "mutations",
+        "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact missing native function or failed Dead/Alive semantic assertion, and preserve the Offline-only execution gate."
+      }
     },
     {
       "id": "character-backups",
@@ -219,14 +474,35 @@
       "description": "Private SHA-256 character-transfer snapshots use the shipped export/import functions with dual Offline checks, patch binding, exact preview fingerprints, a full database backup before destructive restore, transaction locks, narrow orphan cleanup, identity readback, and private receipts.",
       "documentation": "docs/character-backups.md",
       "primaryGate": "DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED",
-      "gates": ["DUNE_ADMIN_MUTATIONS_ENABLED", "DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/character_backups.py", "minimumBytes": 1000}, {"path": "docs/character-backups.md", "minimumBytes": 1000}],
-      "services": ["admin-panel", "postgres"],
+      "files": [
+        {
+          "path": "admin/character_backups.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "docs/character-backups.md",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "postgres"
+      ],
       "probe": "character-backups",
-      "dependencies": ["mutation-governance", "operational-evidence"],
+      "dependencies": [
+        "mutation-governance",
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "mutations", "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact native export/import, checksum, or semantic assertion failure, and preserve the Offline-only restore gate."}
+      "remediation": {
+        "surface": "mutations",
+        "summary": "Run a current isolated PostgreSQL restore drill, repair only the exact native export/import, checksum, or semantic assertion failure, and preserve the Offline-only restore gate."
+      }
     },
     {
       "id": "player-administration",
@@ -235,14 +511,47 @@
       "description": "Guarded items, native runtime actions, vehicles, progression, reputation, journeys, faction, character-slot, canonical identity, orphan cleanup, native deletion, and offline life-state recovery workflows are loaded.",
       "documentation": "docs/player-identity-integrity.md",
       "primaryGate": "DUNE_ADMIN_MUTATIONS_ENABLED",
-      "gates": ["DUNE_ADMIN_MUTATIONS_ENABLED", "DUNE_ADMIN_ITEM_GRANTS_ENABLED", "DUNE_ADMIN_GM_COMMANDS_ENABLED", "DUNE_SERVER_NOTIFICATION_SYSTEM_ENABLED", "DUNE_ADMIN_PLAYER_RUNTIME_MUTATIONS_ENABLED", "DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED", "DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED", "DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED", "DUNE_ADMIN_FACTION_MUTATIONS_ENABLED", "DUNE_ADMIN_CHARACTER_SWAP_ENABLED", "DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED", "DUNE_ADMIN_CHARACTER_DELETE_ENABLED", "DUNE_PLAYER_PRESENCE_PRIVATE_WELCOME_ENABLED"],
-      "credentials": ["DUNE_SERVER_COMMANDS_AUTH_TOKEN"],
-      "files": [{"path": "config/admin-skill-modules.json", "minimumBytes": 100}, {"path": "config/admin-vehicles.json", "minimumBytes": 100}],
-      "services": ["admin-panel", "admin-rmq"],
+      "gates": [
+        "DUNE_ADMIN_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_ITEM_GRANTS_ENABLED",
+        "DUNE_ADMIN_GM_COMMANDS_ENABLED",
+        "DUNE_SERVER_NOTIFICATION_SYSTEM_ENABLED",
+        "DUNE_ADMIN_PLAYER_RUNTIME_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_FACTION_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_CHARACTER_SWAP_ENABLED",
+        "DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_CHARACTER_DELETE_ENABLED",
+        "DUNE_PLAYER_PRESENCE_PRIVATE_WELCOME_ENABLED"
+      ],
+      "credentials": [
+        "DUNE_SERVER_COMMANDS_AUTH_TOKEN"
+      ],
+      "files": [
+        {
+          "path": "config/admin-skill-modules.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/admin-vehicles.json",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "admin-rmq"
+      ],
       "probe": "native-actions",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "mutations", "summary": "Repair only the failed command transport, catalog, or feature gate; preserve per-action preview and confirmation."}
+      "remediation": {
+        "surface": "mutations",
+        "summary": "Repair only the failed command transport, catalog, or feature gate; preserve per-action preview and confirmation."
+      }
     },
     {
       "id": "world-administration",
@@ -251,14 +560,39 @@
       "description": "World-state inspection and the promoted guild, Landsraad, respawn, marker, claim, permission, access-code, Communinet, tutorial, and vendor paths are enabled.",
       "documentation": "docs/world-console.md",
       "primaryGate": "DUNE_ADMIN_LANDSRAAD_MUTATIONS_ENABLED",
-      "gates": ["DUNE_ADMIN_LANDSRAAD_MUTATIONS_ENABLED", "DUNE_ADMIN_RESPAWN_MUTATIONS_ENABLED", "DUNE_ADMIN_GUILD_MUTATIONS_ENABLED", "DUNE_ADMIN_MARKER_MUTATIONS_ENABLED", "DUNE_ADMIN_LANDCLAIM_MUTATIONS_ENABLED", "DUNE_ADMIN_PLAYER_TAG_MUTATIONS_ENABLED", "DUNE_ADMIN_ACCESS_CODE_MUTATIONS_ENABLED", "DUNE_ADMIN_COMMUNINET_MUTATIONS_ENABLED", "DUNE_ADMIN_TUTORIAL_MUTATIONS_ENABLED", "DUNE_ADMIN_PERMISSION_MUTATIONS_ENABLED", "DUNE_ADMIN_VENDOR_MUTATIONS_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_LANDSRAAD_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_RESPAWN_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_GUILD_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_MARKER_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_LANDCLAIM_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_PLAYER_TAG_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_ACCESS_CODE_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_COMMUNINET_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_TUTORIAL_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_PERMISSION_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_VENDOR_MUTATIONS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "config/UserGame.ini", "minimumBytes": 100}],
-      "services": ["admin-panel", "postgres"],
+      "files": [
+        {
+          "path": "config/UserGame.ini",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "postgres"
+      ],
       "probe": "database",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "world", "summary": "Use the exact promoted first-party function path and keep the seven-day Landsraad/Coriolis invariant."}
+      "remediation": {
+        "surface": "world",
+        "summary": "Use the exact promoted first-party function path and keep the seven-day Landsraad/Coriolis invariant."
+      }
     },
     {
       "id": "content-economy",
@@ -267,14 +601,45 @@
       "description": "Typed settings, events, bundles, care packages, Solido blueprints, augments, database tooling, and exchange operations are loaded.",
       "documentation": "docs/admin-panel.md",
       "primaryGate": "DUNE_ADMIN_CATALOG_ENABLED",
-      "gates": ["DUNE_ADMIN_CATALOG_ENABLED", "DUNE_ADMIN_TYPED_KNOBS_ENABLED", "DUNE_ADMIN_EVENT_EXECUTION_ENABLED", "DUNE_ADMIN_BUNDLE_MUTATIONS_ENABLED", "DUNE_ADMIN_CARE_PACKAGES_ENABLED", "DUNE_ADMIN_CARE_PACKAGES_AUTO_ENABLED", "DUNE_ADMIN_BLUEPRINT_MUTATIONS_ENABLED", "DUNE_ADMIN_AUGMENT_MUTATIONS_ENABLED", "DUNE_ADMIN_DATABASE_QUERY_ENABLED", "DUNE_ADMIN_DATABASE_WRITE_ENABLED", "DUNE_ADMIN_DATABASE_ROW_MUTATIONS_ENABLED", "DUNE_ADMIN_DATABASE_PASSWORD_MUTATIONS_ENABLED", "DUNE_ADMIN_EXCHANGE_MUTATIONS_ENABLED"],
+      "gates": [
+        "DUNE_ADMIN_CATALOG_ENABLED",
+        "DUNE_ADMIN_TYPED_KNOBS_ENABLED",
+        "DUNE_ADMIN_EVENT_EXECUTION_ENABLED",
+        "DUNE_ADMIN_BUNDLE_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_CARE_PACKAGES_ENABLED",
+        "DUNE_ADMIN_CARE_PACKAGES_AUTO_ENABLED",
+        "DUNE_ADMIN_BLUEPRINT_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_AUGMENT_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_DATABASE_QUERY_ENABLED",
+        "DUNE_ADMIN_DATABASE_WRITE_ENABLED",
+        "DUNE_ADMIN_DATABASE_ROW_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_DATABASE_PASSWORD_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_EXCHANGE_MUTATIONS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "config/care-packages.json", "minimumBytes": 100}, {"path": "config/augment-compatibility.json", "minimumBytes": 100}],
-      "services": ["admin-panel", "postgres"],
+      "files": [
+        {
+          "path": "config/care-packages.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/augment-compatibility.json",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "admin-panel",
+        "postgres"
+      ],
       "probe": "database",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "catalog", "summary": "Restore the reviewed catalog/config or the specific guarded database/economy gate."}
+      "remediation": {
+        "surface": "catalog",
+        "summary": "Restore the reviewed catalog/config or the specific guarded database/economy gate."
+      }
     },
     {
       "id": "creator-modding",
@@ -283,14 +648,42 @@
       "description": "Base design/gallery, recoverable base retirement, guarded pack-up cooldown reset, presets, cosmetics, and confined addon lifecycle are loaded and proven against disposable state.",
       "documentation": "docs/creator-modding-canary.md",
       "primaryGate": "DUNE_BASE_CREATOR_ENABLED",
-      "gates": ["DUNE_BASE_CREATOR_ENABLED", "DUNE_ADMIN_BASE_RETIREMENT_MUTATIONS_ENABLED", "DUNE_ADMIN_BASE_COOLDOWN_MUTATIONS_ENABLED", "DUNE_GAMEPLAY_PRESETS_ENABLED", "DUNE_GAMEPLAY_PRESET_MUTATIONS_ENABLED", "DUNE_ADMIN_COSMETIC_MUTATIONS_ENABLED", "DUNE_ADMIN_ADDON_MUTATIONS_ENABLED"],
+      "gates": [
+        "DUNE_BASE_CREATOR_ENABLED",
+        "DUNE_ADMIN_BASE_RETIREMENT_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_BASE_COOLDOWN_MUTATIONS_ENABLED",
+        "DUNE_GAMEPLAY_PRESETS_ENABLED",
+        "DUNE_GAMEPLAY_PRESET_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_COSMETIC_MUTATIONS_ENABLED",
+        "DUNE_ADMIN_ADDON_MUTATIONS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/creator_canary.py", "minimumBytes": 1000}, {"path": "config/gameplay-presets.json", "minimumBytes": 100}, {"path": "config/cosmetic-catalog.json", "minimumBytes": 100}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/creator_canary.py",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "config/gameplay-presets.json",
+          "minimumBytes": 100
+        },
+        {
+          "path": "config/cosmetic-catalog.json",
+          "minimumBytes": 100
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "creator-modding",
-      "dependencies": ["mutation-governance"],
+      "dependencies": [
+        "mutation-governance"
+      ],
       "canary": "operator-canary-pending",
-      "remediation": {"surface": "creator", "summary": "Run the isolated Creator/Modding canary after any bound module, catalog, or UserGame target changes; direct live base placement remains separately unclaimed."}
+      "remediation": {
+        "surface": "creator",
+        "summary": "Run the isolated Creator/Modding canary after any bound module, catalog, or UserGame target changes; direct live base placement remains separately unclaimed."
+      }
     },
     {
       "id": "moderation-history",
@@ -299,97 +692,24 @@
       "description": "Privacy-bounded sessions, heatmaps, security events, cases, and repeated native kick enforcement are active.",
       "documentation": "docs/moderation-history.md",
       "primaryGate": "DUNE_MODERATION_ENABLED",
-      "gates": ["DUNE_MODERATION_ENABLED", "DUNE_MODERATION_ENFORCEMENT_ENABLED"],
-      "credentials": [],
-      "files": [],
-      "services": ["admin-panel"],
-      "probe": "moderation",
-      "dependencies": ["player-administration"],
-      "canary": "runtime-proven",
-      "remediation": {"surface": "moderation", "summary": "Inspect the moderation ledger and native kick transport without persisting raw peer IP addresses."}
-    },
-    {
-      "id": "community-rewards",
-      "title": "Community rewards, shop, and engagement",
-      "group": "Community",
-      "description": "Wallets, shop/kits, tracks, vote/payment webhooks, movement-aware rewards, and offline delivery are enabled.",
-      "documentation": "docs/community-rewards.md",
-      "primaryGate": "DUNE_COMMUNITY_REWARDS_ENABLED",
-      "gates": ["DUNE_COMMUNITY_REWARDS_ENABLED", "DUNE_COMMUNITY_DELIVERY_ENABLED"],
-      "credentials": [],
-      "files": [
-        {"path": "config/community-rewards.json", "minimumBytes": 100},
-        {"path": "admin/community_canary.py", "minimumBytes": 1000}
+      "gates": [
+        "DUNE_MODERATION_ENABLED",
+        "DUNE_MODERATION_ENFORCEMENT_ENABLED"
       ],
-      "services": ["admin-panel", "admin-chat-commands"],
-      "probe": "community-rewards",
-      "dependencies": ["player-administration"],
-      "canary": "operator-canary-pending",
-      "remediation": {"surface": "rewards", "summary": "Run the policy-bound isolated canary; repair only its named wallet, webhook, purchase, delivery, engagement, track, ledger, or evidence failure."}
-    },
-    {
-      "id": "discord-operations",
-      "title": "Discord operations and status bot",
-      "group": "Integrations",
-      "description": "The permissioned adapter and full Gateway bot surface are enabled but require operator-owned Discord credentials for READY proof.",
-      "documentation": "docs/discord-bot.md",
-      "primaryGate": "DUNE_DISCORD_ADAPTER_ENABLED",
-      "gates": ["DUNE_DISCORD_ADAPTER_ENABLED"],
-      "credentials": ["DUNE_BOT_API_TOKEN", "DISCORD_BOT_TOKEN", "DISCORD_APPLICATION_ID", "DISCORD_GUILD_ID"],
+      "credentials": [],
       "files": [],
-      "services": ["admin-panel"],
-      "probe": "discord-adapter",
-      "dependencies": [],
-      "canary": "external-credential-pending",
-      "remediation": {"surface": "settings", "summary": "Supply operator-owned Discord application, guild, and bot credentials, then run the documented READY/interaction canary."}
-    },
-    {
-      "id": "federated-admin-login",
-      "title": "Federated admin login",
-      "group": "Integrations",
-      "description": "OIDC or Discord OAuth login is loaded with PKCE and exact subject-to-local-RBAC mapping.",
-      "documentation": "docs/federated-auth.md",
-      "primaryGate": "DUNE_ADMIN_FEDERATED_AUTH_ENABLED",
-      "gates": ["DUNE_ADMIN_FEDERATED_AUTH_ENABLED"],
-      "credentials": ["DUNE_ADMIN_AUTH_CLIENT_ID"],
-      "files": [{"path": "config/secrets/admin-session.secret", "minimumBytes": 32}],
-      "services": ["admin-panel"],
-      "probe": "federated-auth",
-      "dependencies": ["mutation-governance"],
-      "canary": "external-credential-pending",
-      "remediation": {"surface": "settings", "summary": "Create the provider application, configure the HTTPS callback and subject mapping, and retain the owner recovery token."}
-    },
-    {
-      "id": "signed-webhooks",
-      "title": "Signed outbound webhooks",
-      "group": "Integrations",
-      "description": "Bounded retrying outbound events are HMAC-signed and constrained to reviewed destinations.",
-      "documentation": "docs/outbound-webhooks.md",
-      "primaryGate": "DUNE_WEBHOOKS_ENABLED",
-      "gates": ["DUNE_WEBHOOKS_ENABLED"],
-      "credentials": [],
-      "files": [{"path": "config/outbound-webhooks.json", "minimumBytes": 2}],
-      "services": ["admin-panel"],
-      "probe": "webhooks",
-      "dependencies": [],
-      "canary": "external-credential-pending",
-      "remediation": {"surface": "settings", "summary": "Configure a reviewed HTTPS destination and secret, then run its receiver canary."}
-    },
-    {
-      "id": "public-directory",
-      "title": "Signed federated public directory",
-      "group": "Public",
-      "description": "The server publishes a short-lived Ed25519 descriptor and the self-hosted pull directory independently verifies it.",
-      "documentation": "docs/federated-public-directory.md",
-      "primaryGate": "DUNE_PUBLIC_DIRECTORY_ENABLED",
-      "gates": ["DUNE_PUBLIC_DIRECTORY_ENABLED"],
-      "credentials": [],
-      "files": [{"path": "config/secrets/public-directory-ed25519.pem", "minimumBytes": 100}],
-      "services": ["admin-panel"],
-      "probe": "public-directory",
-      "dependencies": [],
+      "services": [
+        "admin-panel"
+      ],
+      "probe": "moderation",
+      "dependencies": [
+        "player-administration"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Repair the exact descriptor URL, static publication, signature, freshness, or reviewed source collection failure."}
+      "remediation": {
+        "surface": "moderation",
+        "summary": "Inspect the moderation ledger and native kick transport without persisting raw peer IP addresses."
+      }
     },
     {
       "id": "multi-sietch",
@@ -398,14 +718,29 @@
       "description": "Additional isolated Survival dimensions can be planned and reconciled through the hostname-gated topology tool.",
       "documentation": "docs/admin-panel.md",
       "primaryGate": "DUNE_SIETCH_MUTATIONS_ENABLED",
-      "gates": ["DUNE_SIETCH_MUTATIONS_ENABLED"],
+      "gates": [
+        "DUNE_SIETCH_MUTATIONS_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "scripts/sietches.sh", "minimumBytes": 1000}],
-      "services": ["director", "gateway"],
+      "files": [
+        {
+          "path": "scripts/sietches.sh",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "director",
+        "gateway"
+      ],
       "probe": "database",
-      "dependencies": ["infrastructure-control"],
+      "dependencies": [
+        "infrastructure-control"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Use the guarded topology status/plan path and preserve deterministic dimension ports and saved-data isolation."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Use the guarded topology status/plan path and preserve deterministic dimension ports and saved-data isolation."
+      }
     },
     {
       "id": "public-ip-repair",
@@ -414,14 +749,32 @@
       "description": "The hostname-gated public-IP monitor and LAN reflection tooling detect and safely repair advertised-address drift.",
       "documentation": "docs/public-ip-repair-canary.md",
       "primaryGate": "DUNE_PUBLIC_IP_MONITOR_ENABLED",
-      "gates": ["DUNE_PUBLIC_IP_MONITOR_ENABLED"],
+      "gates": [
+        "DUNE_PUBLIC_IP_MONITOR_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "scripts/public-ip-monitor.sh", "minimumBytes": 1000}, {"path": "admin/public_ip_canary.py", "minimumBytes": 1000}],
-      "services": ["gateway"],
+      "files": [
+        {
+          "path": "scripts/public-ip-monitor.sh",
+          "minimumBytes": 1000
+        },
+        {
+          "path": "admin/public_ip_canary.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "gateway"
+      ],
       "probe": "public-ip-monitor",
-      "dependencies": ["infrastructure-control"],
+      "dependencies": [
+        "infrastructure-control"
+      ],
       "canary": "operator-canary-pending",
-      "remediation": {"surface": "infrastructure", "summary": "Run the isolated signed repair canary, verify the live current-address no-op, then arm the hostname-gated monitor."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Run the isolated signed repair canary, verify the live current-address no-op, then arm the hostname-gated monitor."
+      }
     },
     {
       "id": "canary-autopilot",
@@ -430,14 +783,28 @@
       "description": "Community, Creator/Modding, and public-IP signed proofs refresh before expiry or after bound-input drift with serialized execution and bounded exponential retry.",
       "documentation": "docs/canary-autopilot.md",
       "primaryGate": "DUNE_CANARY_AUTOPILOT_ENABLED",
-      "gates": ["DUNE_CANARY_AUTOPILOT_ENABLED"],
+      "gates": [
+        "DUNE_CANARY_AUTOPILOT_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/canary_autopilot.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/canary_autopilot.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "canary-autopilot",
-      "dependencies": ["operational-evidence"],
+      "dependencies": [
+        "operational-evidence"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "infrastructure", "summary": "Inspect the named proof reason and retained scheduler error; repair its isolated canary, then let the bounded retry or force-all action refresh it."}
+      "remediation": {
+        "surface": "infrastructure",
+        "summary": "Inspect the named proof reason and retained scheduler error; repair its isolated canary, then let the bounded retry or force-all action refresh it."
+      }
     },
     {
       "id": "operations-calendar",
@@ -448,12 +815,22 @@
       "primaryGate": "",
       "gates": [],
       "credentials": [],
-      "files": [{"path": "admin/operations_calendar.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/operations_calendar.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "operations-calendar",
       "dependencies": [],
       "canary": "runtime-proven",
-      "remediation": {"surface": "ops", "summary": "Resolve the named overlap or SLO-coverage finding; if a live lock owner exists, leave the maintenance job queued for its bounded retry."}
+      "remediation": {
+        "surface": "ops",
+        "summary": "Resolve the named overlap or SLO-coverage finding; if a live lock owner exists, leave the maintenance job queued for its bounded retry."
+      }
     },
     {
       "id": "operations-briefing",
@@ -462,30 +839,29 @@
       "description": "Existing readiness, recovery, reliability, drift, deployment, capacity, credential, proof, and update evidence is reduced to one signed change-aware priority queue without executing recommendations.",
       "documentation": "docs/operations-briefing.md",
       "primaryGate": "DUNE_OPERATIONS_BRIEFING_ENABLED",
-      "gates": ["DUNE_OPERATIONS_BRIEFING_ENABLED"],
+      "gates": [
+        "DUNE_OPERATIONS_BRIEFING_ENABLED"
+      ],
       "credentials": [],
-      "files": [{"path": "admin/operations_briefing.py", "minimumBytes": 1000}],
-      "services": ["admin-panel"],
+      "files": [
+        {
+          "path": "admin/operations_briefing.py",
+          "minimumBytes": 1000
+        }
+      ],
+      "services": [
+        "admin-panel"
+      ],
       "probe": "operations-briefing",
-      "dependencies": ["operational-evidence", "readiness-regression-history"],
+      "dependencies": [
+        "operational-evidence",
+        "readiness-regression-history"
+      ],
       "canary": "runtime-proven",
-      "remediation": {"surface": "overview", "summary": "Inspect the named source and its linked control surface; repair the authoritative subsystem, then let the briefing worker sign the changed state."}
-    },
-    {
-      "id": "encrypted-backups",
-      "title": "Encrypted backup archives",
-      "group": "Recovery",
-      "description": "Verified OpenPGP/restic backup encryption and encrypted-only offsite transport are supported.",
-      "documentation": "docs/backup-encryption.md",
-      "primaryGate": "DUNE_BACKUP_ARCHIVE_ENCRYPTION_ENABLED",
-      "gates": ["DUNE_BACKUP_ARCHIVE_ENCRYPTION_ENABLED"],
-      "credentials": ["DUNE_BACKUP_GPG_RECIPIENT"],
-      "files": [],
-      "services": ["admin-panel"],
-      "probe": "backup-encryption",
-      "dependencies": ["infrastructure-control"],
-      "canary": "external-credential-pending",
-      "remediation": {"surface": "infrastructure:backups", "summary": "Select and verify the recovery recipient fingerprint before enabling encrypted archive output."}
+      "remediation": {
+        "surface": "overview",
+        "summary": "Inspect the named source and its linked control surface; repair the authoritative subsystem, then let the briefing worker sign the changed state."
+      }
     }
   ]
 }
