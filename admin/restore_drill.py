@@ -347,6 +347,8 @@ FROM dune.encrypted_player_state eps
 CROSS JOIN LATERAL dune.get_player_pawn(eps.account_id) gp
 WHERE eps.life_state::text = 'Alive'
   AND eps.player_pawn_id IS NOT NULL
+  AND eps.player_controller_id IS NOT NULL
+  AND (SELECT count(*) FROM dune.encrypted_player_state eps2 WHERE eps2.account_id=eps.account_id) = 1
 ORDER BY eps.account_id
 LIMIT 1;
 
@@ -412,6 +414,8 @@ JOIN dune.world_partition wp ON wp.partition_id=pawn.partition_id
 WHERE eps.online_status::text='Offline'
   AND dune.is_player_offline(ea."user")
   AND NOT wp.blocked
+  AND eps.player_controller_id IS NOT NULL
+  AND (SELECT count(*) FROM dune.encrypted_player_state eps2 WHERE eps2.account_id=eps.account_id) = 1
 ORDER BY eps.account_id
 LIMIT 1;
 
@@ -471,6 +475,9 @@ FROM dune.encrypted_player_state eps
 JOIN dune.encrypted_accounts ea ON ea.id=eps.account_id
 WHERE eps.online_status::text='Offline'
   AND dune.is_player_offline(ea."user")
+  AND eps.player_controller_id IS NOT NULL
+  AND eps.player_pawn_id IS NOT NULL
+  AND (SELECT count(*) FROM dune.encrypted_player_state eps2 WHERE eps2.account_id=eps.account_id) = 1
 ORDER BY eps.account_id
 LIMIT 1;
 
