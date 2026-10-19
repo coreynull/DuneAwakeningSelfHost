@@ -4434,7 +4434,7 @@ def autoscaler_control(action, service=None, mode=None, idle_seconds=None, body=
 def parse_director_travel_demand(log_text):
     patterns = (
         re.compile(r"Processing travel queue for ClassicalInstancing group ([A-Za-z0-9_]+) \(servers: \[[^\]]*\], num: ([0-9]+)\)"),
-        re.compile(r"Received travel request for ([0-9]+) player\(s\) to ([A-Za-z0-9_]+) \(instancingMode=Dimension\)"),
+        re.compile(r"Received travel request for ([0-9]+) player\(s\) to ([A-Za-z0-9_]+) \(instancingMode=(?:Dimension|SingleServer)\)"),
         re.compile(r"Processing travel queue for ([A-Za-z0-9_]+) \(.*\bnum\s*[=:]\s*([0-9]+)\)"),
     )
     events = []
