@@ -20536,6 +20536,14 @@ function mapHealthBrowser(rows){
   }).join('')}</div>`;
   return `${summary}${body}`;
 }
+function fmtDuration(ms){
+  if(ms==null||isNaN(ms))return '—';
+  const s=Math.floor(Number(ms)/1000);
+  if(s<60)return s+'s';
+  const m=Math.floor(s/60);if(m<60)return m+'m '+(s%60)+'s';
+  const h=Math.floor(m/60);if(h<24)return h+'h '+(m%60)+'m';
+  return Math.floor(h/24)+'d '+(h%24)+'h';
+}
 function fmtRuntimeSeconds(seconds){
   const value = Math.max(0, Number(seconds || 0));
   const days = Math.floor(value / 86400);
