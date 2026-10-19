@@ -1677,6 +1677,7 @@ GAME_MAP_SERVICES = [
     "heighliner-dungeon", "ecolab-green-089", "ecolab-green-152", "ecolab-green-024", "ecolab-green-195",
     "ecolab-green-136", "overland-m-01", "overland-s-04", "overland-s-06", "bandit-fortress",
     "overland-s-07", "overland-s-08", "dungeon-thepit",
+    "destroyed-zanovar", "orbital-monitor", "paranoid-prayerroom", "glutton-diningroom", "sietch-talab",
 ]
 if world_partition_count() == 31 and "deep-desert-pvp" not in GAME_MAP_SERVICES:
     GAME_MAP_SERVICES.append("deep-desert-pvp")
