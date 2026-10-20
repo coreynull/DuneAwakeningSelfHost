@@ -31,10 +31,11 @@ done
 "${compose[@]}" up -d postgres
 
 printf 'creating replication role and slot on primary\n'
-"${compose[@]}" exec -T postgres psql -U dune -d "$db" -v ON_ERROR_STOP=1 \
+POSTGRES_REPLICATION_PASSWORD="$replication_password" \
+  "${compose[@]}" exec -e POSTGRES_REPLICATION_PASSWORD -T postgres psql -U dune -d "$db" -v ON_ERROR_STOP=1 \
   -v repl_user="$replication_user" \
-  -v repl_password="$replication_password" \
   -v repl_slot="$replication_slot" <<'SQL'
+\getenv repl_password POSTGRES_REPLICATION_PASSWORD
 select format('create role %I with replication login password %L', :'repl_user', :'repl_password')
 where not exists (select 1 from pg_roles where rolname = :'repl_user') \gexec
 

@@ -26,7 +26,7 @@ x-game-server-preload-env: &game-server-preload-env
   DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES:-0}
 
 x-game-server-env: &game-server-env
-  DUNE_SERVER_LOGIN_PASSWORD: ${DUNE_SERVER_LOGIN_PASSWORD:-}
+  DUNE_RUNTIME_SECRETS_REQUIRED: "true"
   DUNE_SERVER_DISPLAY_NAME: ${DUNE_SERVER_DISPLAY_NAME:-}
   DUNE_SERVER_STARTUP_EXECCMDS: ${DUNE_SERVER_STARTUP_EXECCMDS:-}
   DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS: ${DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS:-false}
@@ -52,6 +52,11 @@ x-game-server-base: &game-server-base
   environment:
     <<: [*game-server-env, *game-server-preload-env]
     WORLD_NAME: ${WORLD_NAME}
+  secrets:
+    - dune_postgres_password
+    - dune_fls_token
+    - dune_server_commands_auth_token
+    - dune_server_login_password
   depends_on:
     - postgres
     - admin-rmq
@@ -65,21 +70,27 @@ x-curl-bin-volume: &curl-bin-volume ./vendor/bin/curl:/usr/local/bin/curl:ro
 x-game-server-command:
   run: &cmd-run /workspace/scripts/run_server_safe.sh
   farm-region: &cmd-farm-region -FarmRegion=${WORLD_REGION}
-  fls-token: &cmd-fls-token -ini:engine:[FuncomLiveServices]:ServiceAuthToken=${FLS_SECRET}
   fls-env: &cmd-fls-env -ini:engine:[FuncomLiveServices]:DefaultFlsEnvironment=${DUNE_FLS_ENV:-retail}
-  server-command-auth-token: &cmd-server-command-auth-token -ini:engine:[FuncomLiveServices]:ServerCommandsAuthToken=${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
   notification-system: &cmd-notification-system -ini:engine:[ConsoleVariables]:server.NotificationSystem.Enabled=${DUNE_SERVER_NOTIFICATION_SYSTEM_ENABLED:-false}
   server-name: &cmd-server-name -ini:engine:[OnlineSubsystem]:ServerName=${WORLD_UNIQUE_NAME}
-  server-login-password: &cmd-server-login-password -ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=${DUNE_SERVER_LOGIN_PASSWORD:-}
   datacenter: &cmd-datacenter -ini:engine:[OnlineSubsystem]:DatacenterId=${WORLD_DATACENTER_ID}
   db-host: &cmd-db-host -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseHost=postgres:5432
   db-user: &cmd-db-user -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseUser=dune
-  db-password: &cmd-db-password -ini:game:[DuneDatabaseInterfacePSQL]:DatabasePassword=${POSTGRES_DUNE_PASSWORD}
   rmq-tls: &cmd-rmq-tls -RMQGameTlsEnabled=true
   external-address: &cmd-external-address -ExternalAddress=${EXTERNAL_ADDRESS}
   rmq-game-host: &cmd-rmq-game-host --RMQGameHostname=game-rmq
   rmq-game-port: &cmd-rmq-game-port --RMQGamePort=5672
   rmq-admin-host: &cmd-rmq-admin-host --RMQAdminHostname=admin-rmq
+secrets:
+  dune_postgres_password:
+    file: ./config/secrets/dune-postgres-password
+  dune_fls_token:
+    file: ./config/secrets/dune-fls-token
+  dune_server_commands_auth_token:
+    file: ./config/secrets/dune-server-commands-token
+  dune_server_login_password:
+    file: ./config/secrets/dune-server-login-password
+
   rmq-admin-port: &cmd-rmq-admin-port --RMQAdminPort=5672
   multihome: &cmd-multihome -MultiHome=$$POD_IP
 
@@ -92,8 +103,9 @@ services:
     environment:
       POSTGRES_DB: dune
       POSTGRES_USER: dune
-      POSTGRES_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      POSTGRES_SUPER_PASSWORD: ${POSTGRES_SUPER_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/dune_postgres_password
+    secrets:
+      - dune_postgres_password
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
@@ -368,16 +380,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -408,16 +416,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -450,16 +454,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -492,16 +492,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -534,16 +530,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -576,16 +568,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -618,16 +606,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -660,16 +644,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -720,16 +700,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host

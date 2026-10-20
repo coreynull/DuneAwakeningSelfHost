@@ -98,11 +98,20 @@ EOF
   exit 0
 fi
 
+secret_tmp="$(mktemp)"
+chmod 0600 "$secret_tmp"
+printf '%s' "$replication_password" > "$secret_tmp"
+trap 'rm -f "$secret_tmp"' EXIT
+remote_secret_dir="$target_root/secrets"
+remote_secret_path="$remote_secret_dir/postgres-replication-password"
+remote_secret_tmp="$remote_secret_path.tmp.$$"
+
 printf '\n== ensuring primary replication role/slot/HBA ==\n'
-"${compose[@]}" exec -T postgres psql -U dune -d "$db" -v ON_ERROR_STOP=1 \
+POSTGRES_REPLICATION_PASSWORD="$replication_password" \
+  "${compose[@]}" exec -e POSTGRES_REPLICATION_PASSWORD -T postgres psql -U dune -d "$db" -v ON_ERROR_STOP=1 \
   -v repl_user="$replication_user" \
-  -v repl_password="$replication_password" \
   -v repl_slot="$replication_slot" <<'SQL'
+\getenv repl_password POSTGRES_REPLICATION_PASSWORD
 select format('create role %I with replication login password %L', :'repl_user', :'repl_password')
 where not exists (select 1 from pg_roles where rolname = :'repl_user') \gexec
 select format('alter role %I with replication login password %L', :'repl_user', :'repl_password') \gexec
@@ -124,7 +133,9 @@ psql -U dune -d \"$db\" -c 'select pg_reload_conf();'
 "
 
 printf '\n== preparing target standby host ==\n'
-ssh "$target" "mkdir -p '$target_root/scripts' '$target_root/snapshots'"
+ssh "$target" "mkdir -p '$target_root/scripts' '$target_root/snapshots' '$remote_secret_dir' && chmod 0700 '$remote_secret_dir'"
+scp "$secret_tmp" "$target:$remote_secret_tmp" >/dev/null
+ssh "$target" "chmod 0600 '$remote_secret_tmp' && mv '$remote_secret_tmp' '$remote_secret_path'"
 scp scripts/postgres-replica-entrypoint.sh "$target:$target_root/scripts/postgres-replica-entrypoint.sh" >/dev/null
 ssh "$target" "chmod +x '$target_root/scripts/postgres-replica-entrypoint.sh'"
 
@@ -146,14 +157,19 @@ fi
 mkdir -p '$target_root/data'
 docker run -d --name dune-postgres-replica --restart unless-stopped \
   $network_arg \
+  -v '$remote_secret_path:/run/secrets/dune_postgres_replication_password:ro' \
   -e POSTGRES_REPLICATION_USER='$replication_user' \
-  -e POSTGRES_REPLICATION_PASSWORD='$replication_password' \
+  -e POSTGRES_REPLICATION_PASSWORD_FILE=/run/secrets/dune_postgres_replication_password \
   -e POSTGRES_REPLICATION_SLOT='$replication_slot' \
   -e POSTGRES_PRIMARY_HOST='$primary_host' \
   -e POSTGRES_PRIMARY_PORT='$primary_port' \
   -v '$target_root/data:/var/lib/postgresql/data' \
   -v '$target_root/scripts/postgres-replica-entrypoint.sh:/workspace/scripts/postgres-replica-entrypoint.sh:ro' \
   '$image' /workspace/scripts/postgres-replica-entrypoint.sh"
+
+unset replication_password
+rm -f "$secret_tmp"
+trap - EXIT
 
 printf '\nnew standby started on %s. Replication status:\n' "$target"
 "${compose[@]}" exec -T postgres psql -U dune -d "$db" -c "
