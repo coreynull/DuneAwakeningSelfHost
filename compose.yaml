@@ -116,6 +116,7 @@ services:
   admin-rmq:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-rabbitmq:${DUNE_IMAGE_TAG}
     hostname: admin-rmq
+    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:03
     environment:
       RMQ_AUTH_BACKEND_1: cache
@@ -145,6 +146,7 @@ services:
   game-rmq:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-rabbitmq:${DUNE_IMAGE_TAG}
     hostname: game-rmq
+    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:04
     environment:
       RMQ_AUTH_BACKEND_1: cache
@@ -176,6 +178,7 @@ services:
 
   rmq-auth-shim:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-db-utils:${DUNE_IMAGE_TAG}
+    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:07
     working_dir: /workspace
     environment:
@@ -271,6 +274,7 @@ services:
 
   text-router:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}
+    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:06
     dns:
       - 1.1.1.1
@@ -322,6 +326,7 @@ services:
 
   gateway:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}
+    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:28
     dns:
       - 1.1.1.1
