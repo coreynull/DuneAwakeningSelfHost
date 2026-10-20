@@ -81,6 +81,9 @@ x-game-server-command:
   rmq-game-host: &cmd-rmq-game-host --RMQGameHostname=game-rmq
   rmq-game-port: &cmd-rmq-game-port --RMQGamePort=5672
   rmq-admin-host: &cmd-rmq-admin-host --RMQAdminHostname=admin-rmq
+  rmq-admin-port: &cmd-rmq-admin-port --RMQAdminPort=5672
+  multihome: &cmd-multihome -MultiHome=$$POD_IP
+
 secrets:
   dune_postgres_password:
     file: ./config/secrets/dune-postgres-password
@@ -90,9 +93,22 @@ secrets:
     file: ./config/secrets/dune-server-commands-token
   dune_server_login_password:
     file: ./config/secrets/dune-server-login-password
-
-  rmq-admin-port: &cmd-rmq-admin-port --RMQAdminPort=5672
-  multihome: &cmd-multihome -MultiHome=$$POD_IP
+  dune_admin_token:
+    file: ./config/secrets/dune-admin-token
+  dune_bot_api_token:
+    file: ./config/secrets/dune-bot-api-token
+  dune_announce_chat_password:
+    file: ./config/secrets/dune-announce-chat-password
+  dune_announce_rmq_password:
+    file: ./config/secrets/dune-announce-rmq-password
+  dune_gm_command_amqp_password:
+    file: ./config/secrets/dune-gm-command-amqp-password
+  dune_gm_command_rmq_password:
+    file: ./config/secrets/dune-gm-command-rmq-password
+  dune_chat_command_amqp_password:
+    file: ./config/secrets/dune-chat-command-amqp-password
+  dune_steam_password:
+    file: ./config/secrets/dune-steam-password
 
 services:
 
@@ -194,7 +210,7 @@ services:
       WORLD_UNIQUE_NAME: ${WORLD_UNIQUE_NAME}
       TEXT_ROUTER_AUTH_BASE: http://text-router:8080
       DUNE_RMQ_MANAGEMENT_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_RMQ_MANAGEMENT_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-}
+      DUNE_RMQ_MANAGEMENT_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
@@ -203,6 +219,8 @@ services:
       - *jq-bin-volume
       - *curl-bin-volume
       - .:/workspace:ro
+    secrets:
+      - dune_announce_rmq_password
     depends_on:
       - text-router
     networks:
@@ -215,7 +233,7 @@ services:
     mac_address: 02:42:ac:1f:f0:42
     environment:
       PYTHONPATH: /root/PSQL
-      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      POSTGRES_DUNE_PASSWORD_FILE: /run/secrets/dune_postgres_password
     command:
       - /workspace/scripts/bootstrap_db.py
     volumes:
@@ -224,6 +242,8 @@ services:
       - *jq-bin-volume
       - *curl-bin-volume
       - .:/workspace:ro
+    secrets:
+      - dune_postgres_password
     depends_on:
       - postgres
     networks:
@@ -746,9 +766,12 @@ services:
       DUNE_ADMIN_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       DUNE_DATABASE: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
-      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      DUNE_ADMIN_TOKEN: ${DUNE_ADMIN_TOKEN}
+      DUNE_ADMIN_DB_PASSWORD_FILE: /workspace-secret-files/dune-postgres-password
+      POSTGRES_DUNE_PASSWORD_FILE: /workspace-secret-files/dune-postgres-password
+      DUNE_SECRET_SOURCE_DIRECTORY: /workspace-secret-files
+      DUNE_ADMIN_TOKEN_FILE: /run/secrets/dune_admin_token
+      FLS_SECRET_FILE: /run/secrets/dune_fls_token
+      DUNE_SERVER_COMMANDS_AUTH_TOKEN_FILE: /run/secrets/dune_server_commands_auth_token
       DUNE_ADMIN_REQUIRE_TOKEN: ${DUNE_ADMIN_REQUIRE_TOKEN:-true}
       DUNE_ADMIN_RBAC_ENABLED: ${DUNE_ADMIN_RBAC_ENABLED:-false}
       DUNE_ADMIN_ACCESS_FILE: ${DUNE_ADMIN_ACCESS_FILE:-/workspace/config/admin-access.json}
@@ -969,8 +992,7 @@ services:
       DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED: ${DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED:-false}
       DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED: ${DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED: ${DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED:-false}
-      DUNE_BOT_API_TOKEN: ${DUNE_BOT_API_TOKEN:-}
-      DUNE_BOT_API_TOKEN_FILE: ${DUNE_BOT_API_TOKEN_FILE:-}
+      DUNE_BOT_API_TOKEN_FILE: /run/secrets/dune_bot_api_token
       DISCORD_OBSERVER_ROLE_IDS: ${DISCORD_OBSERVER_ROLE_IDS:-}
       DISCORD_MODERATOR_ROLE_IDS: ${DISCORD_MODERATOR_ROLE_IDS:-}
       DISCORD_ADMIN_ROLE_IDS: ${DISCORD_ADMIN_ROLE_IDS:-}
@@ -998,7 +1020,6 @@ services:
       DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED: ${DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_CHARACTER_DELETE_ENABLED: ${DUNE_ADMIN_CHARACTER_DELETE_ENABLED:-false}
       DUNE_ADMIN_GM_COMMANDS_ENABLED: ${DUNE_ADMIN_GM_COMMANDS_ENABLED:-false}
-      DUNE_SERVER_COMMANDS_AUTH_TOKEN: ${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
       DUNE_METRICS_RETENTION_TIME: ${DUNE_METRICS_RETENTION_TIME:-7d}
       DUNE_METRICS_RETENTION_SIZE: ${DUNE_METRICS_RETENTION_SIZE:-2GB}
       DUNE_ADMIN_METRICS_CACHE_SECONDS: ${DUNE_ADMIN_METRICS_CACHE_SECONDS:-60}
@@ -1034,7 +1055,7 @@ services:
       DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
       DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
       DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
-      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_PASSWORD_FILE: /run/secrets/dune_announce_chat_password
       DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
       DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
       DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
@@ -1050,7 +1071,7 @@ services:
       DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
       DUNE_ANNOUNCE_RMQ_URL: ${DUNE_ANNOUNCE_RMQ_URL:-http://admin-rmq:15672}
       DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_ANNOUNCE_RMQ_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
       DUNE_ANNOUNCE_RMQ_EXCHANGE: ${DUNE_ANNOUNCE_RMQ_EXCHANGE:-rpc}
       DUNE_ANNOUNCE_RMQ_ROUTING_KEYS: ${DUNE_ANNOUNCE_RMQ_ROUTING_KEYS:-Survival_11}
       DUNE_ANNOUNCE_RMQ_REPLY_TO: ${DUNE_ANNOUNCE_RMQ_REPLY_TO:-bgdRpc}
@@ -1088,7 +1109,7 @@ services:
       DUNE_RESTART_STEAMCMD_HELPER_IMAGE: ${DUNE_RESTART_STEAMCMD_HELPER_IMAGE:-cm2network/steamcmd:root}
       DUNE_STEAM_APP_ID: ${DUNE_STEAM_APP_ID:-4754530}
       DUNE_STEAM_LOGIN: ${DUNE_STEAM_LOGIN:-anonymous}
-      DUNE_STEAM_PASSWORD: ${DUNE_STEAM_PASSWORD:-}
+      DUNE_STEAM_PASSWORD_FILE: /run/secrets/dune_steam_password
       DUNE_STEAMCMD_COMMAND: ${DUNE_STEAMCMD_COMMAND:-steamcmd}
       DUNE_STEAMCMD_VALIDATE: ${DUNE_STEAMCMD_VALIDATE:-true}
       DUNE_STEAMCMD_TIMEOUT_SECONDS: ${DUNE_STEAMCMD_TIMEOUT_SECONDS:-1800}
@@ -1109,10 +1130,10 @@ services:
       DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-admin-rmq}
       DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5672}
       DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
-      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_gm_command_amqp_password
       DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://admin-rmq:15672}
       DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
-      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD_FILE: /run/secrets/dune_gm_command_rmq_password
       DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
       DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
       DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
@@ -1122,7 +1143,7 @@ services:
       DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-5672}
       DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
       DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
-      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_chat_command_amqp_password
       DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
       DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
     command:
@@ -1148,10 +1169,22 @@ services:
       - ${DUNE_STEAM_SERVER_DIR}:/steam-server:ro
       - ./scripts:/workspace/scripts:ro
       - ./config:/workspace/config
+      - ./config/secrets:/workspace-secret-files
       - ./.env:/workspace/.env
       - ./backups:/workspace/backups
       - ./data:/workspace/data:ro
       - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - dune_admin_token
+      - dune_fls_token
+      - dune_server_commands_auth_token
+      - dune_bot_api_token
+      - dune_announce_chat_password
+      - dune_announce_rmq_password
+      - dune_gm_command_amqp_password
+      - dune_gm_command_rmq_password
+      - dune_chat_command_amqp_password
+      - dune_steam_password
     networks:
       default:
         ipv4_address: 172.31.240.9
@@ -1207,7 +1240,9 @@ services:
       DUNE_ADMIN_DB_HOST: ${DUNE_ADMIN_DB_HOST:-127.0.0.1}
       DUNE_ADMIN_DB_PORT: ${DUNE_ADMIN_DB_PORT:-15431}
       DUNE_ADMIN_DB_USER: dune
-      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_ADMIN_DB_PASSWORD_FILE: /run/secrets/dune_postgres_password
+      POSTGRES_DUNE_PASSWORD_FILE: /run/secrets/dune_postgres_password
+      DUNE_ADMIN_TOKEN_FILE: /run/secrets/dune_admin_token
       DUNE_CHAT_COMMAND_PREFIX: ${DUNE_CHAT_COMMAND_PREFIX:-&}
       DUNE_CHAT_COMMAND_ADMINS: ${DUNE_CHAT_COMMAND_ADMINS:-AdminUser}
       DUNE_CHAT_COMMAND_ADMIN_FLS_IDS: ${DUNE_CHAT_COMMAND_ADMIN_FLS_IDS:-TEST_FLS_ID}
@@ -1228,10 +1263,10 @@ services:
       DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-127.0.0.1}
       DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5673}
       DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
-      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_gm_command_amqp_password
       DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://127.0.0.1:15672}
       DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
-      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD_FILE: /run/secrets/dune_gm_command_rmq_password
       DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
       DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
       DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
@@ -1241,7 +1276,7 @@ services:
       DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-31982}
       DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
       DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
-      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_chat_command_amqp_password
       DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
       DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
       DUNE_CHAT_COMMAND_TARGET_REPLY_MODE: ${DUNE_CHAT_COMMAND_TARGET_REPLY_MODE:-whisper}
@@ -1269,7 +1304,7 @@ services:
       DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
       DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
       DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
-      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_PASSWORD_FILE: /run/secrets/dune_announce_chat_password
       DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
       DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
       DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
@@ -1285,7 +1320,7 @@ services:
       DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
       DUNE_ANNOUNCE_RMQ_URL: http://127.0.0.1:15672
       DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_ANNOUNCE_RMQ_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
       DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
       DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/var/run/docker.sock}
     command:
@@ -1312,6 +1347,14 @@ services:
       - ./.env:/workspace/.env:ro
       - ./backups:/workspace/backups
       - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - dune_postgres_password
+      - dune_admin_token
+      - dune_announce_chat_password
+      - dune_announce_rmq_password
+      - dune_gm_command_amqp_password
+      - dune_gm_command_rmq_password
+      - dune_chat_command_amqp_password
 
 networks:
   default:
