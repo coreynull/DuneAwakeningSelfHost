@@ -75,7 +75,7 @@ def atomic_write(path: pathlib.Path, data: bytes, mode: int = 0o600) -> None:
 def sync_from_env(env_file: pathlib.Path, secret_dir: pathlib.Path) -> None:
     values = parse_env(env_file)
     secret_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(secret_dir, 0o700)
+    os.chmod(secret_dir, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     written = 0
     for _compose_name, (filename, env_key, required) in SECRET_SOURCES.items():
         value = values.get(env_key, "")
