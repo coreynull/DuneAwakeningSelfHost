@@ -222,14 +222,19 @@ class RunServerSafeTests(unittest.TestCase):
             raw_args = args_out.read_bytes().rstrip(b"\0").split(b"\0")
             decoded = [item.decode("utf-8") for item in raw_args]
             self.assertIn("-MultiHome=172.31.240.40", decoded)
-            self.assertIn("-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=pass with spaces", decoded)
+            # Credential args are intentionally dropped from the command line and
+            # written to Engine.ini via the runtime-secrets path instead.
+            self.assertNotIn("-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=pass with spaces", decoded)
             self.assertIn("/Game/Dune/Maps/Test Map", decoded)
             self.assertIn("-ExecCmds=ScheduleMTXEvent SpecializationXPBonus 60 604800,ListMTXEvents", decoded)
             self.assertNotIn("-IGWBindAddress=172.31.240.40", decoded)
 
             engine_ini = server_root / "DuneSandbox" / "Saved" / "Config" / "LinuxServer" / "Engine.ini"
             user_engine_ini = server_root / "DuneSandbox" / "Saved" / "UserSettings" / "UserEngine.ini"
-            self.assertIn('Bgd.ServerLoginPassword="pass with spaces"', engine_ini.read_text(encoding="utf-8"))
+            # Launch-time runtime-secrets install writes the login password into
+            # Engine.ini; dry-run intentionally skips the install step, so the
+            # password must not appear here (verified present on live maps).
+            self.assertNotIn("Bgd.ServerLoginPassword", engine_ini.read_text(encoding="utf-8"))
             self.assertIn('Bgd.ServerDisplayName="Display With Spaces"', user_engine_ini.read_text(encoding="utf-8"))
 
             config_link = dune_home / ".config" / "Epic" / "Unreal Engine" / "Engine" / "Config"
@@ -812,7 +817,7 @@ class OperationalReportTests(unittest.TestCase):
             env_text = env_text.replace("WORLD_UNIQUE_NAME=sh-example-dune", "WORLD_UNIQUE_NAME=sh-report-test")
             fls_key = "FLS" + "_SECRET"
             env_text = env_text.replace(f"{fls_key}=", f"{fls_key}=super-secret-token")
-            env_text = env_text.replace("DUNE_ADMIN_TOKEN=change-me-admin-token", "DUNE_ADMIN_TOKEN=admin-secret-token")
+            env_text = env_text.replace("DUNE_ADMIN_TOKEN=\n", "DUNE_ADMIN_TOKEN=admin-secret-token\n", 1)
             env_file.write_text(env_text, encoding="utf-8")
 
             result = subprocess.run(
