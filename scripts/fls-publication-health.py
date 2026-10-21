@@ -119,6 +119,109 @@ def docker_api_json(path, timeout=10):
     return json.loads(body.decode("utf-8") or "null")
 
 
+def docker_api_post(path, payload, timeout=20):
+    """POST a JSON body to the Docker socket and return the raw response body."""
+    sock_path = pathlib.Path(DOCKER_SOCKET)
+    if not sock_path.exists():
+        raise FileNotFoundError(f"Docker socket not found: {DOCKER_SOCKET}")
+    body = json.dumps(payload).encode()
+    request = (
+        f"POST {path} HTTP/1.1\r\nHost: docker\r\nContent-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n"
+    ).encode() + body
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(timeout)
+        sock.connect(str(sock_path))
+        sock.sendall(request)
+        raw = b""
+        while True:
+            try:
+                chunk = sock.recv(65536)
+            except socket.timeout:
+                break
+            if not chunk:
+                break
+            raw += chunk
+    header, _, body = raw.partition(b"\r\n\r\n")
+    status_line = header.split(b"\r\n", 1)[0]
+    if b" 200 " not in status_line and b" 201 " not in status_line:
+        raise RuntimeError(status_line.decode("utf-8", errors="replace"))
+    if b"transfer-encoding: chunked" in header.lower():
+        body = decode_chunked_body(body)
+    return body
+
+
+def docker_exec_capture(container_id, command, timeout=20):
+    """Run a command inside a container via the Docker socket API (no CLI needed)."""
+    create = docker_api_post(
+        f"/containers/{container_id}/exec",
+        {"AttachStdout": True, "AttachStderr": True, "Cmd": ["sh", "-c", command]},
+    )
+    exec_id = json.loads(create.decode("utf-8") or "{}").get("Id")
+    if not exec_id:
+        raise RuntimeError("exec create returned no Id")
+    raw = docker_api_post(f"/exec/{exec_id}/start", {"Detach": False, "Tty": False}, timeout=timeout)
+    return clean_docker_log_bytes(raw)
+
+
+DIRECTOR_FILESINK_DIR = "/Tools/Battlegroups/Director/BattlegroupDirector/logs"
+DIRECTOR_TS_PREFIX = re.compile(r"^\[(\d{2}):(\d{2}):(\d{2})\s")
+
+
+def director_filesink_tail_lines():
+    try:
+        return max(500, int(os.environ.get("DUNE_FLS_PUBLICATION_HEALTH_FILESINK_TAIL", "5000")))
+    except (TypeError, ValueError):
+        return 5000
+
+
+def filter_lines_window(text, since_seconds):
+    """Keep lines whose [HH:MM:SS] UTC prefix falls inside the trailing window.
+
+    Director file-sink lines carry time-of-day only (no date), so the delta is
+    computed modulo 24h (safe across the UTC-midnight file rotation).
+    Untimestamped continuation lines (JSON payloads, stack frames) inherit the
+    preceding timestamped line's verdict.
+    """
+    now = time.gmtime()
+    now_s = now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec
+    out = []
+    keep = False
+    for line in text.splitlines():
+        match = DIRECTOR_TS_PREFIX.match(line)
+        if match:
+            stamp = int(match.group(1)) * 3600 + int(match.group(2)) * 60 + int(match.group(3))
+            keep = (now_s - stamp) % 86400 <= since_seconds
+        if keep:
+            out.append(line)
+    return out
+
+
+def director_filesink_logs(since):
+    """Read the director's in-container file-sink logs.
+
+    Since game build 2160922 (1.5.15) the director writes only its first seconds
+    of boot to stdout; all runtime FLS chatter (heartbeat/population/capacity
+    successes) goes to daily-rotated files under DIRECTOR_FILESINK_DIR. Returns
+    (text_or_None, note): None means the file sink is unavailable and the caller
+    should fall back to container stdout logs.
+    """
+    container_id = find_container_id("director")
+    if not container_id:
+        return None, "director container not found"
+    tail = director_filesink_tail_lines()
+    cmd = (
+        f"ls -1 {DIRECTOR_FILESINK_DIR}/director2*.log 2>/dev/null | tail -2 | "
+        f"while read f; do tail -n {tail} \"$f\"; done"
+    )
+    text = redact(docker_exec_capture(container_id, cmd))
+    if not text.strip():
+        return None, "director file-sink logs empty or missing"
+    windowed = filter_lines_window(text, parse_since_seconds(since))
+    rendered = "\n".join(windowed) + ("\n" if windowed else "")
+    return rendered, f"director file-sink logs (tail {tail}, window {since})"
+
+
 def parse_since_seconds(value):
     text = str(value).strip().lower()
     match = re.fullmatch(r"(\d+)([smhd]?)", text)
@@ -224,6 +327,15 @@ def fallback_container_logs(service, since):
 
 
 def service_logs(base_cmd, service, since):
+    if service == "director":
+        try:
+            sink_logs, sink_note = director_filesink_logs(since)
+        except Exception as exc:
+            sink_logs, sink_note = None, f"director file-sink read failed: {exc}"
+        if sink_logs is not None:
+            LOG_SOURCE_NOTES[service] = sink_note
+            return sink_logs, None
+        LOG_SOURCE_NOTES[service] = f"{sink_note}; falling back to container stdout"
     if not shutil.which(base_cmd[0]):
         if service == "director":
             logs, fallback_note = fallback_container_logs(service, since)
