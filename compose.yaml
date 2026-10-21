@@ -149,6 +149,7 @@ services:
     hostname: admin-rmq
     mac_address: 02:42:ac:1f:f0:03
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
+    command: ["rabbitmq-server"]
     environment:
       RMQ_AUTH_BACKEND_1: cache
       FuncomLiveServices__RmqTlsEnabled: "false"
@@ -181,6 +182,7 @@ services:
     hostname: game-rmq
     mac_address: 02:42:ac:1f:f0:04
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
+    command: ["rabbitmq-server"]
     environment:
       RMQ_AUTH_BACKEND_1: cache
       FuncomLiveServices__RmqTlsEnabled: "true"
