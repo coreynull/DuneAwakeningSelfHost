@@ -93,9 +93,9 @@ secrets:
   dune_server_commands_auth_token:
     file: ./config/secrets/dune-server-commands-token
   dune_server_login_password:
+    file: ./config/secrets/dune-server-login-password
   dune_rmq_http_token_auth_secret:
     file: ./config/secrets/dune-rmq-http-token-auth-secret
-    file: ./config/secrets/dune-server-login-password
   dune_admin_token:
     file: ./config/secrets/dune-admin-token
   dune_bot_api_token:
