@@ -30,7 +30,7 @@ main() {
   install_brt_dd_tool_enable_binary_patch "$server_root" "$dry_run"
   install_user_configs "$server_root"
   sync_default_game_from_usergame "$server_root"
-  install_server_login_password "$server_root" "$@"
+  install_runtime_secrets "$server_root" "$dry_run"
   load_workspace_value DUNE_SERVER_DISPLAY_NAME
   load_workspace_value DUNE_SERVER_STARTUP_EXECCMDS
   load_workspace_value DUNE_BUILDING_PIECE_LIMIT
@@ -190,14 +190,28 @@ main() {
   local pod_ip="${POD_IP:-127.0.0.1}"
   local args=()
   local arg
-  local login_prefix='-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword='
+  local secret_prefix
+  local drop_secret_arg
+  local secret_arg_prefixes=(
+    '-ini:engine:[FuncomLiveServices]:ServiceAuthToken='
+    '-ini:engine:[FuncomLiveServices]:ServerCommandsAuthToken='
+    '-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword='
+    '-ini:game:[DuneDatabaseInterfacePSQL]:DatabasePassword='
+  )
   for arg in "$@"; do
-    if [ "$arg" = '-MultiHome=$POD_IP' ] && [ "${DUNE_DISABLE_MULTIHOME:-false}" = "true" ]; then
+    drop_secret_arg=false
+    for secret_prefix in "${secret_arg_prefixes[@]}"; do
+      if [[ "$arg" == "$secret_prefix"* ]]; then
+        drop_secret_arg=true
+        break
+      fi
+    done
+    if [ "$drop_secret_arg" = "true" ]; then
+      continue
+    elif [ "$arg" = '-MultiHome=$POD_IP' ] && [ "${DUNE_DISABLE_MULTIHOME:-false}" = "true" ]; then
       continue
     elif [ "$arg" = '-MultiHome=$POD_IP' ]; then
       args+=("-MultiHome=$pod_ip")
-    elif [[ "${arg:0:${#login_prefix}}" == "$login_prefix" ]] && [ -n "${DUNE_SERVER_LOGIN_PASSWORD:-}" ]; then
-      args+=("-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=${DUNE_SERVER_LOGIN_PASSWORD}")
     else
       args+=("$arg")
     fi
@@ -734,33 +748,25 @@ sync_ini_operator_assignments() {
   printf '\n%s\n' "$operator_assignments" >> "$target_ini"
 }
 
-install_server_login_password() {
+install_runtime_secrets() {
   local server_root="$1"
-  shift
-  local password="${DUNE_SERVER_LOGIN_PASSWORD:-}"
-  local arg
-  local prefix='-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword='
-  if [ -z "$password" ]; then
-    for arg in "$@"; do
-      if [[ "${arg:0:${#prefix}}" == "$prefix" ]]; then
-        password="${arg:${#prefix}}"
-        break
-      fi
-    done
+  local dry_run="$2"
+  local secret_script
+  secret_script="$(workspace_script game-runtime-secrets.py)"
+  if [ ! -f "$secret_script" ]; then
+    if [ "${DUNE_RUNTIME_SECRETS_REQUIRED:-false}" = "true" ]; then
+      printf 'runtime secret installer is missing: %s\n' "$secret_script" >&2
+      return 1
+    fi
+    return 0
   fi
-  [ -n "$password" ] || return 0
-
-  local config_dir="$server_root/DuneSandbox/Saved/Config/LinuxServer"
-  local engine_ini="${config_dir}/Engine.ini"
-  local user_settings_dir="$server_root/DuneSandbox/Saved/UserSettings"
-  local user_engine_ini="${user_settings_dir}/UserEngine.ini"
-  local quoted_password
-  quoted_password="$(engine_ini_quote "$password")"
-  mkdir -p "$config_dir"
-  mkdir -p "$user_settings_dir"
-
-  set_ini_console_variable "$engine_ini" Bgd.ServerLoginPassword "$quoted_password"
-  set_ini_console_variable "$user_engine_ini" Bgd.ServerLoginPassword "$quoted_password"
+  if [ "$dry_run" = "true" ]; then
+    printf 'runtime secret installer available: %s\n' "$secret_script"
+    return 0
+  fi
+  python3 "$secret_script" install-config \
+    --server-root "$server_root" \
+    --secret-dir "${DUNE_RUNTIME_SECRET_DIRECTORY:-/run/secrets}"
 }
 
 install_server_display_name() {

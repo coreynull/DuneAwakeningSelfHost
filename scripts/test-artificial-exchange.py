@@ -25,6 +25,33 @@ research = load_script("research_exchange_prices_under_test", "scripts/research-
 dune_exchange_import = load_script("import_dune_exchange_prices_under_test", "scripts/import-dune-exchange-prices.py")
 
 
+class ArtificialExchangeEnvironmentTest(unittest.TestCase):
+    def test_dotenv_file_reads_can_be_disabled_for_systemd_environment(self):
+        with mock.patch.dict(bot.os.environ, {"DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE": "true"}):
+            self.assertFalse(bot.should_read_env_files())
+            self.assertFalse(catalog.should_read_env_files())
+
+        with mock.patch.dict(bot.os.environ, {"DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE": "0"}):
+            self.assertTrue(bot.should_read_env_files())
+            self.assertTrue(catalog.should_read_env_files())
+
+    def test_seeded_stats_owner_filter_uses_bound_parameters(self):
+        for owner_id in (0, 124):
+            with self.subTest(owner_id=owner_id):
+                conn = mock.MagicMock()
+                cursor = conn.cursor.return_value.__enter__.return_value
+                cursor.fetchall.return_value = []
+                args = types.SimpleNamespace(exchange_id=2, populator_owner_id=owner_id, limit=50, report_skips=3)
+
+                bot.audit_seeded_stats(conn, args, {})
+
+                query, params = cursor.execute.call_args.args
+                self.assertIn("and (%s <= 0 or o.owner_id=%s)", query)
+                if owner_id > 0:
+                    self.assertNotIn(str(owner_id), query)
+                self.assertEqual(params, (2, owner_id, owner_id, 50))
+
+
 class ArtificialExchangeCatalogTest(unittest.TestCase):
     def write_csv(self, path, rows):
         with path.open("w", newline="", encoding="utf-8") as fh:
@@ -328,6 +355,39 @@ class ArtificialExchangeBotTest(unittest.TestCase):
         row = {"order_id": 7, "source_order_id": None, "original_order_id": 5, "completion_type": 1}
         self.assertEqual(bot.settlement_claim_key(row), "7::5:1")
 
+    def test_settlement_report_uses_solaris_enum_label(self):
+        class FakeCursor:
+            def __init__(self):
+                self.calls = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def execute(self, sql, params=None):
+                self.calls.append((sql, params))
+
+            def fetchone(self):
+                return {"rel": "dune.dune_exchange_fulfilled_orders"}
+
+            def fetchall(self):
+                return []
+
+        class FakeConn:
+            def __init__(self):
+                self.fake_cursor = FakeCursor()
+
+            def cursor(self):
+                return self.fake_cursor
+
+        conn = FakeConn()
+        self.assertEqual(bot.settlement_report(conn, 20), [])
+        sql = "\n".join(statement for statement, _ in conn.fake_cursor.calls)
+        self.assertIn("'Solaris'::dune.virtualwallettype", sql)
+        self.assertNotIn("dune.get_solaris_id()", sql)
+
     def test_seller_solari_credit_updates_bank_and_exchange_mirror(self):
         class FakeCursor:
             def __init__(self):
@@ -352,6 +412,8 @@ class ArtificialExchangeBotTest(unittest.TestCase):
         sql = "\n".join(statement for statement, _ in cur.calls)
         self.assertIn("player_virtual_currency_balances", sql)
         self.assertIn("dune_exchange_users", sql)
+        self.assertIn("'Solaris'::dune.virtualwallettype", sql)
+        self.assertNotIn("dune.get_solaris_id()", sql)
         self.assertNotIn("dune.items", sql)
         self.assertNotIn("save_item", sql)
 

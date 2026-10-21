@@ -23,6 +23,19 @@ POSTGRES_REPLICATION_SLOT=dune_standby
 POSTGRES_REPLICA_HOST_PORT=15433
 ```
 
+Before starting Compose, stage protected runtime files from the private `.env`:
+
+```sh
+./scripts/protect-compose-secrets.sh
+python3 scripts/game-runtime-secrets.py sync-from-env --env-file .env
+```
+
+Compose mounts the application password and replication password as read-only
+files. The replica wrapper creates a mode-`0600` temporary `.pgpass` under
+`/run` and removes both password environment variables before starting Postgres.
+The remote installer transfers the replication secret as a protected file;
+it does not put the value in Docker arguments or container metadata.
+
 Initialize the primary replication role/HBA rule and start the standby:
 
 ```sh

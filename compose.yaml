@@ -26,7 +26,7 @@ x-game-server-preload-env: &game-server-preload-env
   DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES:-0}
 
 x-game-server-env: &game-server-env
-  DUNE_SERVER_LOGIN_PASSWORD: ${DUNE_SERVER_LOGIN_PASSWORD:-}
+  DUNE_RUNTIME_SECRETS_REQUIRED: "true"
   DUNE_SERVER_DISPLAY_NAME: ${DUNE_SERVER_DISPLAY_NAME:-}
   DUNE_SERVER_STARTUP_EXECCMDS: ${DUNE_SERVER_STARTUP_EXECCMDS:-}
   DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS: ${DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS:-false}
@@ -52,6 +52,11 @@ x-game-server-base: &game-server-base
   environment:
     <<: [*game-server-env, *game-server-preload-env]
     WORLD_NAME: ${WORLD_NAME}
+  secrets:
+    - dune_postgres_password
+    - dune_fls_token
+    - dune_server_commands_auth_token
+    - dune_server_login_password
   depends_on:
     - postgres
     - admin-rmq
@@ -61,20 +66,17 @@ x-rg-bin-volume: &rg-bin-volume ./vendor/bin/rg:/usr/local/bin/rg:ro
 x-busybox-bin-volume: &busybox-bin-volume ./vendor/bin/busybox:/usr/local/bin/busybox:ro
 x-jq-bin-volume: &jq-bin-volume ./vendor/bin/jq:/usr/local/bin/jq:ro
 x-curl-bin-volume: &curl-bin-volume ./vendor/bin/curl:/usr/local/bin/curl:ro
+x-dune-secret-wrapper-volume: &dune-secret-wrapper-volume ./scripts/dune-secret-env-wrapper.sh:/usr/local/bin/dune-secret-env-wrapper.sh:ro
 
 x-game-server-command:
   run: &cmd-run /workspace/scripts/run_server_safe.sh
   farm-region: &cmd-farm-region -FarmRegion=${WORLD_REGION}
-  fls-token: &cmd-fls-token -ini:engine:[FuncomLiveServices]:ServiceAuthToken=${FLS_SECRET}
   fls-env: &cmd-fls-env -ini:engine:[FuncomLiveServices]:DefaultFlsEnvironment=${DUNE_FLS_ENV:-retail}
-  server-command-auth-token: &cmd-server-command-auth-token -ini:engine:[FuncomLiveServices]:ServerCommandsAuthToken=${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
   notification-system: &cmd-notification-system -ini:engine:[ConsoleVariables]:server.NotificationSystem.Enabled=${DUNE_SERVER_NOTIFICATION_SYSTEM_ENABLED:-false}
   server-name: &cmd-server-name -ini:engine:[OnlineSubsystem]:ServerName=${WORLD_UNIQUE_NAME}
-  server-login-password: &cmd-server-login-password -ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=${DUNE_SERVER_LOGIN_PASSWORD:-}
   datacenter: &cmd-datacenter -ini:engine:[OnlineSubsystem]:DatacenterId=${WORLD_DATACENTER_ID}
   db-host: &cmd-db-host -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseHost=postgres:5432
   db-user: &cmd-db-user -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseUser=dune
-  db-password: &cmd-db-password -ini:game:[DuneDatabaseInterfacePSQL]:DatabasePassword=${POSTGRES_DUNE_PASSWORD}
   rmq-tls: &cmd-rmq-tls -RMQGameTlsEnabled=true
   external-address: &cmd-external-address -ExternalAddress=${EXTERNAL_ADDRESS}
   rmq-game-host: &cmd-rmq-game-host --RMQGameHostname=game-rmq
@@ -82,6 +84,34 @@ x-game-server-command:
   rmq-admin-host: &cmd-rmq-admin-host --RMQAdminHostname=admin-rmq
   rmq-admin-port: &cmd-rmq-admin-port --RMQAdminPort=5672
   multihome: &cmd-multihome -MultiHome=$$POD_IP
+
+secrets:
+  dune_postgres_password:
+    file: ./config/secrets/dune-postgres-password
+  dune_fls_token:
+    file: ./config/secrets/dune-fls-token
+  dune_server_commands_auth_token:
+    file: ./config/secrets/dune-server-commands-token
+  dune_server_login_password:
+    file: ./config/secrets/dune-server-login-password
+  dune_rmq_http_token_auth_secret:
+    file: ./config/secrets/dune-rmq-http-token-auth-secret
+  dune_admin_token:
+    file: ./config/secrets/dune-admin-token
+  dune_bot_api_token:
+    file: ./config/secrets/dune-bot-api-token
+  dune_announce_chat_password:
+    file: ./config/secrets/dune-announce-chat-password
+  dune_announce_rmq_password:
+    file: ./config/secrets/dune-announce-rmq-password
+  dune_gm_command_amqp_password:
+    file: ./config/secrets/dune-gm-command-amqp-password
+  dune_gm_command_rmq_password:
+    file: ./config/secrets/dune-gm-command-rmq-password
+  dune_chat_command_amqp_password:
+    file: ./config/secrets/dune-chat-command-amqp-password
+  dune_steam_password:
+    file: ./config/secrets/dune-steam-password
 
 services:
 
@@ -92,8 +122,9 @@ services:
     environment:
       POSTGRES_DB: dune
       POSTGRES_USER: dune
-      POSTGRES_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      POSTGRES_SUPER_PASSWORD: ${POSTGRES_SUPER_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/dune_postgres_password
+    secrets:
+      - dune_postgres_password
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
@@ -118,15 +149,19 @@ services:
     hostname: admin-rmq
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:03
+    entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
+    command: ["rabbitmq-server"]
     environment:
       RMQ_AUTH_BACKEND_1: cache
-      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       FuncomLiveServices__RmqTlsEnabled: "false"
+    secrets:
+      - dune_rmq_http_token_auth_secret
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
       - *jq-bin-volume
       - *curl-bin-volume
+      - *dune-secret-wrapper-volume
       - ./config/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./config/rabbitmq-admin.conf:/etc/rabbitmq/conf.d/99-dune.conf:ro
       - ./data/rabbitmq/admin:/var/lib/rabbitmq
@@ -148,15 +183,19 @@ services:
     hostname: game-rmq
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:04
+    entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
+    command: ["rabbitmq-server"]
     environment:
       RMQ_AUTH_BACKEND_1: cache
-      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       FuncomLiveServices__RmqTlsEnabled: "true"
+    secrets:
+      - dune_rmq_http_token_auth_secret
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
       - *jq-bin-volume
       - *curl-bin-volume
+      - *dune-secret-wrapper-volume
       - ./config/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./config/rabbitmq-game.conf:/etc/rabbitmq/conf.d/99-dune.conf:ro
       - ./config/tls/rabbitmq/ca.crt:/etc/rabbitmq/cacert.pem:ro
@@ -185,7 +224,7 @@ services:
       WORLD_UNIQUE_NAME: ${WORLD_UNIQUE_NAME}
       TEXT_ROUTER_AUTH_BASE: http://text-router:8080
       DUNE_RMQ_MANAGEMENT_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_RMQ_MANAGEMENT_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-}
+      DUNE_RMQ_MANAGEMENT_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
@@ -194,6 +233,8 @@ services:
       - *jq-bin-volume
       - *curl-bin-volume
       - .:/workspace:ro
+    secrets:
+      - dune_announce_rmq_password
     depends_on:
       - text-router
     networks:
@@ -206,7 +247,7 @@ services:
     mac_address: 02:42:ac:1f:f0:42
     environment:
       PYTHONPATH: /root/PSQL
-      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      POSTGRES_DUNE_PASSWORD_FILE: /run/secrets/dune_postgres_password
       DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
     command:
       - /workspace/scripts/bootstrap_db.py
@@ -216,6 +257,8 @@ services:
       - *jq-bin-volume
       - *curl-bin-volume
       - .:/workspace:ro
+    secrets:
+      - dune_postgres_password
     depends_on:
       - postgres
     networks:
@@ -224,6 +267,7 @@ services:
 
   director:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-bg-director:${DUNE_IMAGE_TAG}
+    entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "director"]
     # Director currently terminates on malformed login envelopes instead of
     # rejecting them. Keep the control plane self-healing while the upstream
     # validation bug is worked around.
@@ -245,24 +289,26 @@ services:
       Database__address: postgres
       Database__port: "5432"
       Database__user: dune
-      Database__password: ${POSTGRES_DUNE_PASSWORD}
       Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
-      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
       WORLD_NAME: ${WORLD_NAME}
       OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
       OPT_DISPLAY_NAME: ${WORLD_NAME}
-      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
       FuncomLiveServices__RmqTlsEnabled: "true"
       BATTLEGROUP_REGION_NAME: ${WORLD_REGION}
       HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
       HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
       FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
+    secrets:
+      - dune_postgres_password
+      - dune_fls_token
+      - dune_rmq_http_token_auth_secret
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
       - *jq-bin-volume
       - *curl-bin-volume
+      - *dune-secret-wrapper-volume
       - ./config/director.ini:/etc/app/conf.d/director.ini:ro
     depends_on:
       - postgres
@@ -276,6 +322,7 @@ services:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:06
+    entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "text-router"]
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -292,25 +339,24 @@ services:
       DuneDatabaseInterfacePSQL_DatabaseHost: postgres
       DuneDatabaseInterfacePSQL_DatabasePort: "5432"
       DuneDatabaseInterfacePSQL_DatabaseUser: dune
-      DuneDatabaseInterfacePSQL_DatabasePassword: ${POSTGRES_DUNE_PASSWORD}
       DuneDatabaseInterfacePSQL_DatabaseName: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
-      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       Database__address: postgres
       Database__port: "5432"
       Database__user: dune
-      Database__password: ${POSTGRES_DUNE_PASSWORD}
-      Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
       WORLD_NAME: ${WORLD_NAME}
       OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
       OPT_DISPLAY_NAME: ${WORLD_NAME}
       BATTLEGROUP_REGION_NAME: ${WORLD_REGION}
-      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
       FuncomLiveServices__RmqTlsEnabled: "true"
       BATTLEGROUP_LANGUAGE: en-US
       HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
       HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
       FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
+    secrets:
+      - dune_postgres_password
+      - dune_fls_token
+      - dune_rmq_http_token_auth_secret
     depends_on:
       - postgres
       - admin-rmq
@@ -320,6 +366,7 @@ services:
       - *busybox-bin-volume
       - *jq-bin-volume
       - *curl-bin-volume
+      - *dune-secret-wrapper-volume
     networks:
       default:
         ipv4_address: 172.31.240.6
@@ -328,6 +375,7 @@ services:
     image: registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:28
+    entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "gateway"]
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -345,24 +393,25 @@ services:
       DuneDatabaseInterfacePSQL_DatabaseHost: postgres
       DuneDatabaseInterfacePSQL_DatabasePort: "5432"
       DuneDatabaseInterfacePSQL_DatabaseUser: dune
-      DuneDatabaseInterfacePSQL_DatabasePassword: ${POSTGRES_DUNE_PASSWORD}
       DuneDatabaseInterfacePSQL_DatabaseName: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
-      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
       FuncomLiveServices__RmqTlsEnabled: "true"
       FuncomLiveServices__BattlegroupAuthorizationPreset: BattlegroupInternal
       FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
       BATTLEGROUP_DISPLAY_NAME: ${PUBLIC_SERVER_NAME:-${WORLD_NAME}}
       OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
       OPT_DISPLAY_NAME: ${PUBLIC_SERVER_NAME:-${WORLD_NAME}}
-      gateway_farm_api_key: ${FLS_SECRET}
-      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
       HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
       HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
+    secrets:
+      - dune_postgres_password
+      - dune_fls_token
+      - dune_rmq_http_token_auth_secret
     volumes:
       - *rg-bin-volume
       - *busybox-bin-volume
       - *jq-bin-volume
       - *curl-bin-volume
+      - *dune-secret-wrapper-volume
       - ./config/gateway.ini:/etc/app/conf.d/gateway.ini:ro
     depends_on:
       - postgres
@@ -376,16 +425,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -416,16 +461,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -458,16 +499,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -500,16 +537,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -542,16 +575,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -584,16 +613,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -626,16 +651,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -668,16 +689,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -728,16 +745,12 @@ services:
     command:
       - *cmd-run
       - *cmd-farm-region
-      - *cmd-fls-token
       - *cmd-fls-env
-      - *cmd-server-command-auth-token
       - *cmd-notification-system
       - *cmd-server-name
-      - *cmd-server-login-password
       - *cmd-datacenter
       - *cmd-db-host
       - *cmd-db-user
-      - *cmd-db-password
       - *cmd-rmq-tls
       - *cmd-external-address
       - *cmd-rmq-game-host
@@ -779,9 +792,12 @@ services:
       DUNE_ADMIN_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
       DUNE_DATABASE: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
-      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
-      DUNE_ADMIN_TOKEN: ${DUNE_ADMIN_TOKEN}
+      DUNE_ADMIN_DB_PASSWORD_FILE: /workspace-secret-files/dune-postgres-password
+      POSTGRES_DUNE_PASSWORD_FILE: /workspace-secret-files/dune-postgres-password
+      DUNE_SECRET_SOURCE_DIRECTORY: /workspace-secret-files
+      DUNE_ADMIN_TOKEN_FILE: /run/secrets/dune_admin_token
+      FLS_SECRET_FILE: /run/secrets/dune_fls_token
+      DUNE_SERVER_COMMANDS_AUTH_TOKEN_FILE: /run/secrets/dune_server_commands_auth_token
       DUNE_ADMIN_REQUIRE_TOKEN: ${DUNE_ADMIN_REQUIRE_TOKEN:-true}
       DUNE_ADMIN_RBAC_ENABLED: ${DUNE_ADMIN_RBAC_ENABLED:-false}
       DUNE_ADMIN_ACCESS_FILE: ${DUNE_ADMIN_ACCESS_FILE:-/workspace/config/admin-access.json}
@@ -1002,8 +1018,7 @@ services:
       DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED: ${DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED:-false}
       DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED: ${DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED: ${DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED:-false}
-      DUNE_BOT_API_TOKEN: ${DUNE_BOT_API_TOKEN:-}
-      DUNE_BOT_API_TOKEN_FILE: ${DUNE_BOT_API_TOKEN_FILE:-}
+      DUNE_BOT_API_TOKEN_FILE: /run/secrets/dune_bot_api_token
       DISCORD_OBSERVER_ROLE_IDS: ${DISCORD_OBSERVER_ROLE_IDS:-}
       DISCORD_MODERATOR_ROLE_IDS: ${DISCORD_MODERATOR_ROLE_IDS:-}
       DISCORD_ADMIN_ROLE_IDS: ${DISCORD_ADMIN_ROLE_IDS:-}
@@ -1031,7 +1046,6 @@ services:
       DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED: ${DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_CHARACTER_DELETE_ENABLED: ${DUNE_ADMIN_CHARACTER_DELETE_ENABLED:-false}
       DUNE_ADMIN_GM_COMMANDS_ENABLED: ${DUNE_ADMIN_GM_COMMANDS_ENABLED:-false}
-      DUNE_SERVER_COMMANDS_AUTH_TOKEN: ${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
       DUNE_METRICS_RETENTION_TIME: ${DUNE_METRICS_RETENTION_TIME:-7d}
       DUNE_METRICS_RETENTION_SIZE: ${DUNE_METRICS_RETENTION_SIZE:-2GB}
       DUNE_ADMIN_METRICS_CACHE_SECONDS: ${DUNE_ADMIN_METRICS_CACHE_SECONDS:-60}
@@ -1067,7 +1081,7 @@ services:
       DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
       DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
       DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
-      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_PASSWORD_FILE: /run/secrets/dune_announce_chat_password
       DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
       DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
       DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
@@ -1083,7 +1097,7 @@ services:
       DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
       DUNE_ANNOUNCE_RMQ_URL: ${DUNE_ANNOUNCE_RMQ_URL:-http://admin-rmq:15672}
       DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_ANNOUNCE_RMQ_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
       DUNE_ANNOUNCE_RMQ_EXCHANGE: ${DUNE_ANNOUNCE_RMQ_EXCHANGE:-rpc}
       DUNE_ANNOUNCE_RMQ_ROUTING_KEYS: ${DUNE_ANNOUNCE_RMQ_ROUTING_KEYS:-Survival_11}
       DUNE_ANNOUNCE_RMQ_REPLY_TO: ${DUNE_ANNOUNCE_RMQ_REPLY_TO:-bgdRpc}
@@ -1121,7 +1135,7 @@ services:
       DUNE_RESTART_STEAMCMD_HELPER_IMAGE: ${DUNE_RESTART_STEAMCMD_HELPER_IMAGE:-cm2network/steamcmd:root}
       DUNE_STEAM_APP_ID: ${DUNE_STEAM_APP_ID:-4754530}
       DUNE_STEAM_LOGIN: ${DUNE_STEAM_LOGIN:-anonymous}
-      DUNE_STEAM_PASSWORD: ${DUNE_STEAM_PASSWORD:-}
+      DUNE_STEAM_PASSWORD_FILE: /run/secrets/dune_steam_password
       DUNE_STEAMCMD_COMMAND: ${DUNE_STEAMCMD_COMMAND:-steamcmd}
       DUNE_STEAMCMD_VALIDATE: ${DUNE_STEAMCMD_VALIDATE:-true}
       DUNE_STEAMCMD_TIMEOUT_SECONDS: ${DUNE_STEAMCMD_TIMEOUT_SECONDS:-1800}
@@ -1142,10 +1156,10 @@ services:
       DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-admin-rmq}
       DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5672}
       DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
-      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_gm_command_amqp_password
       DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://admin-rmq:15672}
       DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
-      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD_FILE: /run/secrets/dune_gm_command_rmq_password
       DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
       DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
       DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
@@ -1155,7 +1169,7 @@ services:
       DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-5672}
       DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
       DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
-      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_chat_command_amqp_password
       DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
       DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
     command:
@@ -1181,10 +1195,22 @@ services:
       - ${DUNE_STEAM_SERVER_DIR}:/steam-server:ro
       - ./scripts:/workspace/scripts:ro
       - ./config:/workspace/config
+      - ./config/secrets:/workspace-secret-files
       - ./.env:/workspace/.env
       - ./backups:/workspace/backups
       - ./data:/workspace/data:ro
       - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - dune_admin_token
+      - dune_fls_token
+      - dune_server_commands_auth_token
+      - dune_bot_api_token
+      - dune_announce_chat_password
+      - dune_announce_rmq_password
+      - dune_gm_command_amqp_password
+      - dune_gm_command_rmq_password
+      - dune_chat_command_amqp_password
+      - dune_steam_password
     networks:
       default:
         ipv4_address: 172.31.240.9
@@ -1240,7 +1266,9 @@ services:
       DUNE_ADMIN_DB_HOST: ${DUNE_ADMIN_DB_HOST:-127.0.0.1}
       DUNE_ADMIN_DB_PORT: ${DUNE_ADMIN_DB_PORT:-15431}
       DUNE_ADMIN_DB_USER: dune
-      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_ADMIN_DB_PASSWORD_FILE: /run/secrets/dune_postgres_password
+      POSTGRES_DUNE_PASSWORD_FILE: /run/secrets/dune_postgres_password
+      DUNE_ADMIN_TOKEN_FILE: /run/secrets/dune_admin_token
       DUNE_CHAT_COMMAND_PREFIX: ${DUNE_CHAT_COMMAND_PREFIX:-&}
       DUNE_CHAT_COMMAND_ADMINS: ${DUNE_CHAT_COMMAND_ADMINS:-AdminUser}
       DUNE_CHAT_COMMAND_ADMIN_FLS_IDS: ${DUNE_CHAT_COMMAND_ADMIN_FLS_IDS:-TEST_FLS_ID}
@@ -1261,10 +1289,10 @@ services:
       DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-127.0.0.1}
       DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5673}
       DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
-      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_gm_command_amqp_password
       DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://127.0.0.1:15672}
       DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
-      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD_FILE: /run/secrets/dune_gm_command_rmq_password
       DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
       DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
       DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
@@ -1274,7 +1302,7 @@ services:
       DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-31982}
       DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
       DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
-      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD_FILE: /run/secrets/dune_chat_command_amqp_password
       DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
       DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
       DUNE_CHAT_COMMAND_TARGET_REPLY_MODE: ${DUNE_CHAT_COMMAND_TARGET_REPLY_MODE:-whisper}
@@ -1302,7 +1330,7 @@ services:
       DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
       DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
       DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
-      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_PASSWORD_FILE: /run/secrets/dune_announce_chat_password
       DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
       DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
       DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
@@ -1318,7 +1346,7 @@ services:
       DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
       DUNE_ANNOUNCE_RMQ_URL: http://127.0.0.1:15672
       DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
-      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_ANNOUNCE_RMQ_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
       DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
       DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/var/run/docker.sock}
     command:
@@ -1345,6 +1373,14 @@ services:
       - ./.env:/workspace/.env:ro
       - ./backups:/workspace/backups
       - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - dune_postgres_password
+      - dune_admin_token
+      - dune_announce_chat_password
+      - dune_announce_rmq_password
+      - dune_gm_command_amqp_password
+      - dune_gm_command_rmq_password
+      - dune_chat_command_amqp_password
 
 networks:
   default:

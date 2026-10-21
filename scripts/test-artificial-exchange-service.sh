@@ -35,13 +35,28 @@ if ! grep -q "^ExecStartPre=$repo_root/scripts/build-exchange-catalog.py$" "$uni
   exit 1
 fi
 
-if grep -q '^Environment=DUNE_ARTIFICIAL_EXCHANGE_' "$unit_file"; then
+if grep -E '^Environment=DUNE_ARTIFICIAL_EXCHANGE_' "$unit_file" | grep -v '^Environment=DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE=true$' >/dev/null; then
   printf 'rendered unit hardcodes artificial Exchange gates instead of using env file\n' >&2
+  exit 1
+fi
+
+if ! grep -q '^Environment=DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE=true$' "$unit_file"; then
+  printf 'rendered unit does not avoid rereading the dotenv file\n' >&2
   exit 1
 fi
 
 if ! grep -q '^Environment=PYTHONUNBUFFERED=1$' "$unit_file"; then
   printf 'rendered unit does not force unbuffered Python logging\n' >&2
+  exit 1
+fi
+
+if ! grep -q '^StartLimitIntervalSec=10min$' "$unit_file" || ! grep -q '^StartLimitBurst=3$' "$unit_file"; then
+  printf 'rendered buyer unit does not cap repeated start failures\n' >&2
+  exit 1
+fi
+
+if ! grep -q '^RestartSec=60s$' "$unit_file"; then
+  printf 'rendered buyer unit does not back off after failure\n' >&2
   exit 1
 fi
 
@@ -75,6 +90,11 @@ fi
 
 if ! grep -q "^EnvironmentFile=$env_file$" "$watchdog_service"; then
   printf 'rendered watchdog service did not use requested env file\n' >&2
+  exit 1
+fi
+
+if ! grep -q '^Environment=DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE=true$' "$watchdog_service"; then
+  printf 'rendered watchdog service does not avoid rereading the dotenv file\n' >&2
   exit 1
 fi
 

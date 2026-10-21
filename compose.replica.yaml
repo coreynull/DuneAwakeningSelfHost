@@ -1,3 +1,7 @@
+secrets:
+  dune_postgres_replication_password:
+    file: ./config/secrets/dune-postgres-replication-password
+
 services:
   postgres-replica:
     image: registry.funcom.com/funcom/self-hosting/igw-postgres:17.4-alpine-fc-13
@@ -8,10 +12,12 @@ services:
     environment:
       PGDATA: /var/lib/postgresql/data
       POSTGRES_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-dune_replicator}
-      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:?set POSTGRES_REPLICATION_PASSWORD in .env}
+      POSTGRES_REPLICATION_PASSWORD_FILE: /run/secrets/dune_postgres_replication_password
       POSTGRES_REPLICATION_SLOT: ${POSTGRES_REPLICATION_SLOT:-dune_standby}
       POSTGRES_PRIMARY_HOST: ${POSTGRES_PRIMARY_HOST:-postgres}
       POSTGRES_PRIMARY_PORT: ${POSTGRES_PRIMARY_PORT:-5432}
+    secrets:
+      - dune_postgres_replication_password
     volumes:
       - ./vendor/bin/rg:/usr/local/bin/rg:ro
       - ./vendor/bin/busybox:/usr/local/bin/busybox:ro
