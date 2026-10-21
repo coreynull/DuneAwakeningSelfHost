@@ -125,6 +125,16 @@ and backups. Execution requires `scripts/storage-cleanup.sh cleanup --execute`
 plus the exact confirmation documented by the script. Build-cache pruning is a
 separate opt-in flag. See [`infrastructure-console.md`](infrastructure-console.md).
 
+Game log retention is handled separately by `scripts/prune-game-logs.sh`
+(daily via the host operator crontab, default 7 days). It prunes the director
+file-sink logs inside the director container
+(`/Tools/Battlegroups/Director/BattlegroupDirector/logs/`, ~95MB/day since game
+build 2160922 moved director runtime logging off stdout) and the UE5
+backup/rotated logs under `data/server-saved/<map>/Logs/`. The two newest
+director log files are always protected because
+`scripts/fls-publication-health.py` tails them for FLS publication checks.
+Default invocation is a dry-run; deletion requires `--execute`.
+
 For the expanded standing farm, the expected summary is:
 
 ```text
