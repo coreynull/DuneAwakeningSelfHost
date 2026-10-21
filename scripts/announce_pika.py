@@ -10,6 +10,8 @@ import uuid
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "vendor"))
 import pika
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from secret_env import read_secret_env
 
 
 def read_env_file(path):
@@ -33,6 +35,13 @@ def env(name, default=""):
     if name in os.environ and os.environ[name] != "":
         return os.environ[name]
     return file_env.get(name, default)
+
+
+def secret_env(name, default=""):
+    if os.environ.get(f"{name}_FILE", "").strip():
+        return read_secret_env(name, default)
+    value = env(name, default)
+    return "" if value == "dash-admin-test" else value
 
 
 def env_bool(name, default=False):
@@ -59,7 +68,7 @@ host = env("DUNE_ANNOUNCE_HOST_AMQP_HOST", "127.0.0.1")
 port = int(env("DUNE_ANNOUNCE_HOST_AMQP_PORT", env("GAME_RMQ_PUBLIC_PORT", "31982")))
 tls = env_bool("DUNE_ANNOUNCE_GAME_RMQ_AMQP_TLS", True)
 user = env("DUNE_ANNOUNCE_CHAT_USER", "A000000000000001")
-password = env("DUNE_ANNOUNCE_CHAT_PASSWORD", "dash-admin-test")
+password = secret_env("DUNE_ANNOUNCE_CHAT_PASSWORD")
 funcom_id = env("DUNE_ANNOUNCE_CHAT_FUNCOM_ID", "ADMIN#00001")
 exchange = env("DUNE_ANNOUNCE_CHAT_EXCHANGE", "chat.map")
 routes = split_csv(env("DUNE_ANNOUNCE_CHAT_ROUTING_KEYS", "HaggaBasin.0,Survival_1.dim_0,<empty>"))

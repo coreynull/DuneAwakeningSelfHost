@@ -37,6 +37,9 @@ python3 scripts/artificial-exchange-bot.py --settlement-report
 make artificial-exchange-smoke
 ```
 
+`--check-ready` exits nonzero when any required readiness gate fails. The buyer
+watchdog uses this status before restarting an inactive live service.
+
 Only after that flow is clean should an operator enable live purchase,
 auto-claim, funding, or populator apply gates in `.env`.
 
@@ -432,9 +435,13 @@ Read surfaces:
 - `dune.items`
 - `dune.inventories`
 - `dune.player_state`
-- `dune.player_virtual_currency_balances`
-- `dune.get_solaris_id()`
+- `dune.player_virtual_currency_balances`, whose `currency_id` is the
+  `dune.virtualwallettype` enum (`Solaris`, `HouseCredit`)
 - Exchange function signatures from `pg_proc`
+
+Use the typed enum literal `'Solaris'::dune.virtualwallettype` when selecting
+or creating the player's Solaris bank-balance row. The old
+`dune.get_solaris_id()` helper is absent from current database schemas.
 
 Native write functions used:
 

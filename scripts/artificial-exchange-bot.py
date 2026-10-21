@@ -15,6 +15,7 @@ import difflib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from secret_env import read_secret_env
 from exchange_category_map import EXCHANGE_CATEGORY_MASKS
 from dune_whisper_route import whisper_route_for_fls_id
 
@@ -148,9 +149,19 @@ def read_env_file(path):
     return values
 
 
+def should_read_env_files():
+    return os.environ.get("DUNE_ARTIFICIAL_EXCHANGE_SKIP_DOTENV_FILE", "").strip().lower() not in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 FILE_ENV = {}
-for env_path in ("/workspace/.env", ROOT / ".env"):
-    FILE_ENV.update(read_env_file(env_path))
+if should_read_env_files():
+    for env_path in ("/workspace/.env", ROOT / ".env"):
+        FILE_ENV.update(read_env_file(env_path))
 
 
 def env(name, default=""):
@@ -158,6 +169,12 @@ def env(name, default=""):
     if value not in (None, ""):
         return value
     return FILE_ENV.get(name, default)
+
+
+def secret_env(name, default=""):
+    if os.environ.get(f"{name}_FILE", "").strip():
+        return read_secret_env(name, default)
+    return env(name, default)
 
 
 def env_bool(name, default=False):
@@ -191,7 +208,7 @@ def connect_db():
         host=host,
         port=port,
         user=env("DUNE_ADMIN_DB_USER", "dune"),
-        password=env("DUNE_ADMIN_DB_PASSWORD", env("POSTGRES_DUNE_PASSWORD", "")),
+        password=secret_env("DUNE_ADMIN_DB_PASSWORD") or secret_env("POSTGRES_DUNE_PASSWORD"),
         dbname=dbname,
         connect_timeout=5,
         cursor_factory=psycopg2.extras.RealDictCursor,
@@ -951,29 +968,24 @@ def fetch_seeded_orders(conn, exchange_id, owner_id, limit):
 
 
 def audit_seeded_stats(conn, args, catalog):
-    owner_filter = "and o.owner_id=%s" if args.populator_owner_id > 0 else ""
-    params = [args.exchange_id]
-    if args.populator_owner_id > 0:
-        params.append(args.populator_owner_id)
-    params.append(args.limit)
     with conn.cursor() as cur:
         cur.execute(
-            f"""
+            """
             select
                 o.id, o.owner_id, o.template_id, o.item_price, o.quality_level as order_quality_level,
                 i.id as item_id, i.quality_level as item_quality_level, i.stack_size,
-                coalesce(i.stats, '{{}}'::jsonb) = '{{}}'::jsonb as empty_stats,
+                coalesce(i.stats, '{}'::jsonb) = '{}'::jsonb as empty_stats,
                 o.category_mask, o.category_depth
             from dune.dune_exchange_orders o
             left join dune.items i on i.id=o.item_id
             where o.exchange_id=%s
               and o.is_npc_order=true
               and o.item_id is not null
-              {owner_filter}
+              and (%s <= 0 or o.owner_id=%s)
             order by o.id desc
             limit %s
             """,
-            tuple(params),
+            (args.exchange_id, args.populator_owner_id, args.populator_owner_id, args.limit),
         )
         rows = [dict(row) for row in cur.fetchall()]
 
@@ -2059,7 +2071,7 @@ def settlement_report(conn, limit):
             left join dune.player_state ps on ps.player_controller_id = o.owner_id
             left join dune.player_virtual_currency_balances b
               on b.player_controller_id = o.owner_id
-             and b.currency_id = dune.get_solaris_id()
+             and b.currency_id = 'Solaris'::dune.virtualwallettype
             order by o.id desc
             limit %s
             """,
@@ -2106,7 +2118,7 @@ def credit_solaris_bank(cur, controller_id, amount, owner_id=None):
     cur.execute(
         """
         insert into dune.player_virtual_currency_balances(player_controller_id, currency_id, balance)
-        values(%s, dune.get_solaris_id(), 0)
+        values(%s, 'Solaris'::dune.virtualwallettype, 0)
         on conflict (player_controller_id, currency_id) do nothing
         """,
         (controller_id,),
@@ -2115,7 +2127,7 @@ def credit_solaris_bank(cur, controller_id, amount, owner_id=None):
         """
         select balance
         from dune.player_virtual_currency_balances
-        where player_controller_id=%s and currency_id=dune.get_solaris_id()
+        where player_controller_id=%s and currency_id='Solaris'::dune.virtualwallettype
         for update
         """,
         (controller_id,),
@@ -2129,7 +2141,7 @@ def credit_solaris_bank(cur, controller_id, amount, owner_id=None):
         """
         update dune.player_virtual_currency_balances
         set balance = balance + %s
-        where player_controller_id=%s and currency_id=dune.get_solaris_id()
+        where player_controller_id=%s and currency_id='Solaris'::dune.virtualwallettype
         returning balance
         """,
         (amount, controller_id),
@@ -2161,7 +2173,7 @@ def credit_solaris_bank(cur, controller_id, amount, owner_id=None):
         """
         select balance
         from dune.player_virtual_currency_balances
-        where player_controller_id=%s and currency_id=dune.get_solaris_id()
+        where player_controller_id=%s and currency_id='Solaris'::dune.virtualwallettype
         """,
         (controller_id,),
     )
@@ -2912,7 +2924,10 @@ def main():
         print(json.dumps(stats_library_report(args, catalog), indent=2, default=str))
         return
     if args.check_ready:
-        print(json.dumps(readiness_check(args), indent=2, default=str))
+        result = readiness_check(args)
+        print(json.dumps(result, indent=2, default=str))
+        if not result["ok"]:
+            raise SystemExit(1)
         return
     if args.claim_settlement is not None:
         print(json.dumps(claim_settlement_once(args), indent=2, default=str))
