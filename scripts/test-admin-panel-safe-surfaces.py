@@ -846,7 +846,13 @@ class AdminPanelSafeSurfacesTest(unittest.TestCase):
         self.assertEqual(lifecycle["mutators"]["partyAccountCommuninet"]["status"], "inspect-only")
 
         spice = self.handler.spice_field_inspect()
-        self.assertEqual(spice["caps"][0]["map"], "DeepDesert")
+        # dune.spicefield_types / dune.spicefield_server_availability do not exist
+        # in game builds >= 1.5.x, so the caps/availability queries are
+        # intentionally stubbed to no-ops (commit fe5dce09). Assert the stub
+        # contract: empty caps, no recorded query errors, typed-knob mutator
+        # metadata still exposed.
+        self.assertEqual(spice["caps"], [])
+        self.assertEqual(spice["errors"], {})
         self.assertIn("typedKnob", spice)
 
     def test_event_dry_run_is_plan_only(self):
