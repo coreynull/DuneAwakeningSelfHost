@@ -83,7 +83,7 @@ restart_farm() {
 }
 
 check_now() {
-  local enabled allowed_host hostname_now configured detected rmq_host stamp backup dry_run pending_status staged_env staged_tls tls_backup
+  local enabled allowed_host hostname_now configured detected rmq_host stamp backup dry_run pending_status staged_env staged_tls tls_backup regen_tls
   enabled="$(read_env DUNE_PUBLIC_IP_MONITOR_ENABLED)"
   if ! bool_true "$enabled"; then
     write_state disabled "" "$(read_env EXTERNAL_ADDRESS)" "monitor disabled"
@@ -139,6 +139,9 @@ check_now() {
   rmq_host="$(read_env GAME_RMQ_PUBLIC_HOST)"
   if [[ -z "$rmq_host" || "$rmq_host" == "$configured" ]]; then
     write_file_value "$staged_env" GAME_RMQ_PUBLIC_HOST "$detected"
+    regen_tls="${DUNE_PUBLIC_IP_MONITOR_REGEN_TLS:-$(read_env DUNE_PUBLIC_IP_MONITOR_REGEN_TLS)}"
+    regen_tls="${regen_tls:-true}"
+    if bool_true "$regen_tls"; then
     staged_tls="$state_dir/.rabbitmq-tls-public-ip-$stamp"
     mkdir -m 700 "$staged_tls"
     RABBITMQ_TLS_DIR="$staged_tls" "$repo_root/scripts/generate-rabbitmq-cert.sh" "$staged_env" --force
@@ -149,6 +152,9 @@ check_now() {
     fi
     install -d -m 700 "$repo_root/config/tls/rabbitmq"
     cp -a "$staged_tls/." "$repo_root/config/tls/rabbitmq/"
+    else
+      printf 'public-ip monitor: RabbitMQ TLS regeneration skipped (DUNE_PUBLIC_IP_MONITOR_REGEN_TLS not true)\n'
+    fi
   fi
   write_env_value EXTERNAL_ADDRESS "$detected"
   if [[ -z "$rmq_host" || "$rmq_host" == "$configured" ]]; then write_env_value GAME_RMQ_PUBLIC_HOST "$detected"; fi
