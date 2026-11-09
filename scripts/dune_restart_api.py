@@ -232,7 +232,15 @@ def configured_map_services() -> set[str]:
             raw_count = line.split("=", 1)[1].strip().strip("\"'")
             if not raw_count.isdigit():
                 raise RuntimeError("the configured world partition count is invalid")
-            if int(raw_count) >= 31:
+            probe = subprocess.run(
+                ["docker", "ps", "-aq", "--filter", "label=com.docker.compose.service=deep-desert-pvp"],
+                text=True, capture_output=True, timeout=10, check=False,
+            )
+            if int(raw_count) >= 31 and probe.returncode == 0 and probe.stdout.strip():
+                # Roster the optional pvp map only when the deployment actually
+                # runs it; profile-disabled deployments leave no container, and
+                # the existing-container guard would reject every all-target
+                # request during batch admission.
                 services.add("deep-desert-pvp")
             else:
                 services.discard("deep-desert-pvp")
