@@ -248,7 +248,7 @@ services:
     networks: {default: {ipv4_address: 172.31.240.39}}
 
   deep-desert-pvp:
-    # Internal service id is legacy. Partition 31 is the PVE Hardcore Deep Desert.
+    # Internal service id is legacy. Renumbered to partition 36: this private roster occupies 31-35 with story-interior maps.
     profiles: ["disabled-deep-desert-pvp"]
     <<: *game-server-base
     labels:
@@ -256,7 +256,7 @@ services:
       dune.map.partition-label: "02 PVE Hardcore"
       dune.map.enabled-by-partition-count: "true"
       dune.map.remove-when-disabled: "true"
-    command: [*cmd-run, *cmd-farm-region, *cmd-fls-env, *cmd-server-name, *cmd-datacenter, *cmd-db-host, *cmd-db-user, *cmd-rmq-tls, *cmd-external-address, *cmd-rmq-game-host, *cmd-rmq-game-port, *cmd-rmq-admin-host, *cmd-rmq-admin-port, *cmd-multihome, /Game/Dune/Maps/Arrakis/DeepDesert_1/DeepDesert_1.DeepDesert_1, -Port=7807, -IGWPort=7918, -PartitionIndex=31]
+    command: [*cmd-run, *cmd-farm-region, *cmd-fls-env, *cmd-server-name, *cmd-datacenter, *cmd-db-host, *cmd-db-user, *cmd-rmq-tls, *cmd-external-address, *cmd-rmq-game-host, *cmd-rmq-game-port, *cmd-rmq-admin-host, *cmd-rmq-admin-port, *cmd-multihome, /Game/Dune/Maps/Arrakis/DeepDesert_1/DeepDesert_1.DeepDesert_1, -Port=7807, -IGWPort=7918, -PartitionIndex=36]
     environment:
       <<: [*game-server-env, *game-server-preload-env]
       POD_IP: 172.31.240.43
