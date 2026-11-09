@@ -1689,6 +1689,12 @@ FALLBACK_GAME_MAPS = [
     ("ecolab-green-136", 23), ("overland-m-01", 24), ("overland-s-04", 25),
     ("overland-s-06", 26), ("bandit-fortress", 27), ("overland-s-07", 28),
     ("overland-s-08", 29), ("dungeon-thepit", 30),
+
+    ("destroyed-zanovar", 31),
+    ("orbital-monitor", 32),
+    ("paranoid-prayerroom", 33),
+    ("glutton-diningroom", 34),
+    ("sietch-talab", 35),
 ]
 if world_partition_count() >= 31:
     FALLBACK_GAME_MAPS.extend([

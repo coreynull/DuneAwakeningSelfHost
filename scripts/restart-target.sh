@@ -391,7 +391,12 @@ import sys
 target, services, socket_path, action, phase = sys.argv[1:]
 timeout = int(os.environ.get("DUNE_ADMIN_RESTART_COMMAND_TIMEOUT_SECONDS", "1800"))
 service_list = services.split()
-if target != "all" and not service_list:
+if target == "all":
+    # The restart-api admits target=all against its own approved roster; a
+    # non-empty panel-side list (which includes service-layer names the
+    # map-roster guard cannot accept) is rejected with 403.
+    service_list = []
+elif not service_list:
     service_list = [target]
 payload = json.dumps({
     "target": target,
