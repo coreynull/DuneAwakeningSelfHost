@@ -1163,7 +1163,7 @@ services:
       COMPOSE_FILES: ${COMPOSE_FILES:-}
       DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
       DUNE_RESTART_API_SOCKET: /run/dune-restart-api.sock
-      DUNE_RESTART_DOCKER_SOCKET: /run/dune-docker-api/docker.sock
+      DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/run/dune-docker-api/docker.sock}
       DUNE_RESTART_HOST_WORKSPACE: ${DUNE_RESTART_HOST_WORKSPACE:-${DUNE_ANNOUNCE_HOST_WORKSPACE:-}}
       DUNE_RESTART_COMPOSE_IMAGE: ${DUNE_RESTART_COMPOSE_IMAGE:-docker:27.5.1-cli}
       DUNE_RESTART_USE_HOST_COMPOSE: "false"
@@ -1252,7 +1252,7 @@ services:
       - ./.env:/workspace/.env
       - ./backups:/workspace/backups
       - ./data:/workspace/data:ro
-      - /dev/null:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - /run/dune-restart-api/restart.sock:/run/dune-restart-api.sock:ro
       - dune-docker-api:/run/dune-docker-api:ro
     secrets:
