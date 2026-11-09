@@ -86,7 +86,11 @@ run_bounded() {
   local timeout_seconds="$1"
   shift
   if command -v timeout >/dev/null 2>&1; then
-    timeout --kill-after=5s "${timeout_seconds}s" "$@"
+    if timeout --help 2>&1 | grep -q -- '--kill-after'; then
+      timeout --kill-after=5s "${timeout_seconds}s" "$@"
+    else
+      timeout "${timeout_seconds%s}" "$@"
+    fi
   else
     "$@"
   fi

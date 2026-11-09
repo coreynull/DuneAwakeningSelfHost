@@ -421,8 +421,10 @@ require_zero_players() {
 run_analysis() {
   if [[ "$analysis_timeout" == "0" ]]; then
     "$@"
-  else
+  elif command -v timeout >/dev/null 2>&1 && timeout --help 2>&1 | grep -q -- '--kill-after'; then
     timeout --kill-after=5s "$analysis_timeout" "$@"
+  else
+    timeout "${analysis_timeout%s}" "$@"
   fi
 }
 

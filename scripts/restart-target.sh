@@ -82,7 +82,11 @@ seed_gateway_neighbors() {
       ;;
   esac
   if [ "$seed_timeout" -gt 0 ] && command -v timeout >/dev/null 2>&1; then
-    timeout --kill-after=5s "${seed_timeout}s" ./scripts/seed-gateway-neighbor.sh || true
+    if timeout --help 2>&1 | grep -q -- '--kill-after'; then
+      timeout --kill-after=5s "${seed_timeout}s" ./scripts/seed-gateway-neighbor.sh || true
+    else
+      timeout "$seed_timeout" ./scripts/seed-gateway-neighbor.sh || true
+    fi
   else
     ./scripts/seed-gateway-neighbor.sh || true
   fi
