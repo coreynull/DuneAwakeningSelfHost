@@ -343,13 +343,18 @@ def execute_restart(request: dict) -> dict:
         if not request["dryRun"] and action in {"start", "restart"}:
             admission.run([str(ROOT / "scripts/validate-landsraad-coriolis-cycle.sh"), environment["ENV_FILE"]], env=environment)
         for service in services:
-            admission.unchanged_environment()
-            admission.recover_existing(service, action, environment, dry_run=request["dryRun"], post_hooks=False)
+            try:
+                admission.unchanged_environment()
+                admission.recover_existing(service, action, environment, dry_run=request["dryRun"], post_hooks=False)
+            except Exception:
+                print(f"restart-api: admission failed at service={service} phase={request['phase']} action={action}: ", file=sys.stderr, flush=True)
+                raise
         if not request["dryRun"] and action in {"start", "restart"}:
             admission.post_start_hooks(environment)
         return {"ok": True, "exitCode": 0, "output": "Existing approved containers processed.",
                 "durationMs": int((time.monotonic() - started) * 1000)}
-    except (host_service_control.Blocked, ValueError, KeyError):
+    except (host_service_control.Blocked, ValueError, KeyError) as exc:
+        print(f"restart-api: admission rejected phase={request.get('phase')} target={request.get('target')}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return {"ok": False, "exitCode": 78, "error": "host-approved existing-container recovery admission failed", "output": ""}
     except subprocess.TimeoutExpired:
         return {"ok": False, "exitCode": 124, "error": "host restart exceeded its time limit", "output": ""}
