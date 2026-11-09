@@ -33,6 +33,7 @@ for arg in "$@"; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+script_dir="$repo_root/scripts"
 cd "$repo_root"
 
 get_env() {
@@ -183,6 +184,11 @@ fi
 
 package_tag="${package_tags[0]}"
 
+if [[ -z "$installed_buildid" || -z "$target_buildid" ]]; then
+  echo "status: unable to verify Steam's installed and target build IDs"
+  exit 2
+fi
+
 if [[ -n "$installed_buildid" && -n "$target_buildid" && "$installed_buildid" != "$target_buildid" ]]; then
   echo "status: Steam package install incomplete"
   echo "installed buildid: $installed_buildid"
@@ -191,10 +197,19 @@ if [[ -n "$installed_buildid" && -n "$target_buildid" && "$installed_buildid" !=
   exit 2
 fi
 
+if [[ -n "$(env_or_file DUNE_GAME_IMAGE)" ]]; then
+  security_tag="$package_tag"
+  current_build="${current_tag%%-*}"; package_build="${package_tag%%-*}"
+  if [[ "$current_build" =~ ^[0-9]+$ && "$package_build" =~ ^[0-9]+$ && "$package_build" -lt "$current_build" ]]; then
+    security_tag="$current_tag"
+  fi
+  python3 "$script_dir/runtime-security.py" "$env_file" --expected-tag "$security_tag" >/dev/null
+fi
+
 if [[ "$current_tag" == "$package_tag" ]]; then
-  if [[ -n "$installed_buildid" && "$installed_buildid" != "$loaded_buildid" ]]; then
+  if [[ -z "$loaded_buildid" || "$installed_buildid" != "$loaded_buildid" ]]; then
     echo "status: same tag but Steam build changed"
-    echo "reload required: $package_tag buildid $installed_buildid"
+    echo "reload required: $package_tag buildid $installed_buildid (last loaded: ${loaded_buildid:-missing})"
     exit 1
   fi
   echo "status: current"
@@ -218,7 +233,7 @@ echo "  docker compose --env-file $env_file config --quiet"
 echo "  ./scripts/backup-state.sh $env_file"
 
 if [[ "$write_env" == true ]]; then
-  python3 "$repo_root/scripts/update-env-file.py" "$env_file" --quiet \
+  python3 "$repo_root/scripts/update-env-file.py" "$env_file" --allow-protected-link --quiet \
     --set DUNE_IMAGE_TAG "$package_tag"
   echo "updated $env_file: DUNE_IMAGE_TAG=$package_tag"
   exit 0

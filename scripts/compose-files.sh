@@ -3,6 +3,18 @@ set -euo pipefail
 
 env_file="${1:-${DUNE_ENV_FILE:-.env}}"
 default_files="${DUNE_DEFAULT_COMPOSE_FILES:-compose.yaml:compose.allmaps.yaml}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "$script_dir/.." && pwd -P)"
+if [[ -n "${DUNE_COMPOSE_APPROVED_CONFIGURATION_FILE:-}" ]]; then
+  approved_file="$DUNE_COMPOSE_APPROVED_CONFIGURATION_FILE"
+  [[ "$approved_file" == /* && -f "$approved_file" && ! -L "$approved_file" && -r "$approved_file" ]] || {
+    printf 'approved host configuration is unavailable\n' >&2
+    exit 78
+  }
+  printf '%s\n' "$approved_file"
+  exit 0
+fi
+"$script_dir/protect-compose-secrets.sh" "$repo_root" >&2
 
 read_env() {
   local key="$1" value
@@ -10,6 +22,10 @@ read_env() {
   value="${value%\"}"; value="${value#\"}"; value="${value%\'}"; value="${value#\'}"
   printf '%s' "$value"
 }
+
+if [[ -n "${DUNE_GAME_IMAGE-$(read_env DUNE_GAME_IMAGE)}" ]]; then
+  python3 "$script_dir/runtime-security.py" "$env_file" >/dev/null
+fi
 
 file_exists() {
   [[ -f "$1" ]]
@@ -53,6 +69,47 @@ for compose_file in "${requested_files[@]}"; do
   add_file "$compose_file"
 done
 
+map_template="${DUNE_WORLD_TEMPLATE_PATH:-$(read_env DUNE_WORLD_TEMPLATE_PATH)}"
+map_template="${map_template:-/home/keith/dune-steamcmd-server/scripts/setup/templates/world-template.yaml}"
+if [[ "$map_template" != /* ]]; then map_template="$repo_root/$map_template"; fi
+map_discovery_enabled="${DUNE_MAP_AUTO_DISCOVERY_ENABLED:-$(read_env DUNE_MAP_AUTO_DISCOVERY_ENABLED)}"
+map_discovery_enabled="${map_discovery_enabled:-auto}"
+if [[ "$map_discovery_enabled" == "auto" ]]; then
+  if [[ -f "$map_template" ]]; then
+    map_discovery_enabled=true
+  else
+    map_discovery_enabled=false
+  fi
+fi
+case "$map_discovery_enabled" in
+  true)
+    if [[ ! -f "$map_template" ]]; then
+      printf 'automatic map discovery is enabled but the world template is missing: %s\n' "$map_template" >&2
+      exit 1
+    fi
+    map_overlay="${DUNE_MAP_WORKER_OVERLAY_FILE:-$(read_env DUNE_MAP_WORKER_OVERLAY_FILE)}"
+    map_overlay="${map_overlay:-$repo_root/backups/admin-panel/compose.auto-maps.yaml}"
+    if [[ "$map_overlay" != /* ]]; then map_overlay="$repo_root/$map_overlay"; fi
+    map_game_port_range="$(read_env GAME_UDP_PORT_RANGE)"
+    map_igw_port_range="$(read_env IGW_UDP_PORT_RANGE)"
+    map_game_port_range="${map_game_port_range:-${GAME_UDP_PORT_RANGE:-}}"
+    map_igw_port_range="${map_igw_port_range:-${IGW_UDP_PORT_RANGE:-}}"
+    GAME_UDP_PORT_RANGE="$map_game_port_range" \
+    IGW_UDP_PORT_RANGE="$map_igw_port_range" \
+    python3 "$script_dir/sync-map-workers.py" "$env_file" \
+      --root "$repo_root" \
+      --world-template "$map_template" \
+      --compose-files "$compose_files" \
+      --output "$map_overlay" >&2
+    add_file "$map_overlay"
+    ;;
+  false) ;;
+  *)
+    printf 'DUNE_MAP_AUTO_DISCOVERY_ENABLED must be true, false, or auto; got: %s\n' "$map_discovery_enabled" >&2
+    exit 2
+    ;;
+esac
+
 postgres_remote_host="${POSTGRES_REMOTE_REPLICA_HOST:-$(read_env POSTGRES_REMOTE_REPLICA_HOST)}"
 postgres_remote_root="${POSTGRES_REMOTE_REPLICA_ROOT:-$(read_env POSTGRES_REMOTE_REPLICA_ROOT)}"
 if file_exists compose.failover-standby.yaml; then
@@ -62,8 +119,15 @@ if file_exists compose.failover-standby.yaml; then
 fi
 
 building_piece_enabled="${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-$(read_env DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED)}"
-if [[ "$building_piece_enabled" == "true" ]] && file_exists compose.building-piece-limit.yaml; then
+building_piece_mode="${DUNE_BUILDING_PIECE_LIMIT_MODE:-$(read_env DUNE_BUILDING_PIECE_LIMIT_MODE)}"
+building_piece_mode="${building_piece_mode:-server-settings}"
+if [[ "$building_piece_enabled" == "true" && "$building_piece_mode" == "pak" ]] && file_exists compose.building-piece-limit.yaml; then
   add_file compose.building-piece-limit.yaml
+fi
+
+lua_mods_enabled="${DUNE_PROBE_LOADER_LUA_MODS_ENABLED:-$(read_env DUNE_PROBE_LOADER_LUA_MODS_ENABLED)}"
+if [[ "$lua_mods_enabled" == "true" ]] && file_exists compose.ue4ss-building-piece-limit.yaml; then
+  add_file compose.ue4ss-building-piece-limit.yaml
 fi
 
 landsraad_vendor_gate_enabled="${DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED:-$(read_env DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED)}"
@@ -84,12 +148,6 @@ if [[ "$brt_dd_invalid_map_enabled" == "true" || "$brt_dd_action_gate_enabled" =
   elif file_exists compose.brt-dd-invalid-map.yaml; then
     add_file compose.brt-dd-invalid-map.yaml
   fi
-fi
-
-fls_ipv4_hosts_enabled="${DUNE_FLS_IPV4_HOSTS_ENABLED:-$(read_env DUNE_FLS_IPV4_HOSTS_ENABLED)}"
-fls_ipv4_hosts_enabled="${fls_ipv4_hosts_enabled:-true}"
-if [[ "$fls_ipv4_hosts_enabled" == "true" ]] && file_exists compose.fls-ipv4-hosts.yaml; then
-  add_file compose.fls-ipv4-hosts.yaml
 fi
 
 director_hostnet_enabled="${DUNE_DIRECTOR_HOSTNET_ENABLED:-$(read_env DUNE_DIRECTOR_HOSTNET_ENABLED)}"

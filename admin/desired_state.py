@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import pathlib
+import re
 import sqlite3
 import stat
 import time
@@ -257,6 +258,51 @@ def compare_snapshots(baseline, current):
     return changes
 
 
+def validate_runtime_transition(baseline, current, transition, secret):
+    required = {'service', 'fromImageId', 'fromImageRef', 'toImageId', 'toImageRef'}
+    if not isinstance(transition, dict) or set(transition) != required:
+        raise ValueError('complete runtime image transition required')
+    service = transition['service']
+    if not isinstance(service, str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}', service):
+        raise ValueError('invalid runtime transition service')
+    if not all(isinstance(transition[key], str) and re.fullmatch(r'sha256:[0-9a-f]{64}', transition[key]) for key in ('fromImageId', 'toImageId')):
+        raise ValueError('immutable runtime image identities required')
+    before = (baseline.get('containers') or {}).get(service)
+    after = (current.get('containers') or {}).get(service)
+    if not before or not after:
+        raise ValueError('existing runtime service required')
+    if (after.get('imageId'), after.get('imageRef')) != (transition['toImageId'], transition['toImageRef']):
+        raise ValueError('runtime candidate identity changed')
+    changes = compare_snapshots(baseline, current)
+    if not changes and before == after:
+        return
+    if (before.get('imageId'), before.get('imageRef')) != (transition['fromImageId'], transition['fromImageRef']):
+        raise ValueError('runtime source identity changed')
+    if len(changes) != 1 or changes[0]['category'] != 'containers' or changes[0]['subject'] != service or changes[0]['change'] != 'modified':
+        raise ValueError('unrelated desired-state drift blocks runtime attestation')
+    fields = set(changes[0]['details']['changedFields'])
+    if 'envHmacs' in fields:
+        # These two legacy names were replaced by explicit binary-patch names.
+        # Only an already-disabled flag may migrate, with the identical signed
+        # false value. Arbitrary environment renames remain drift.
+        aliases = {
+            'DUNE_BRT_DD_ACTION_GATE_PATCH_ENABLED': 'DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED',
+            'DUNE_BRT_DD_TOOL_ENABLE_PATCH_ENABLED': 'DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED',
+        }
+        old_env, new_env = before.get('envHmacs') or {}, dict(after.get('envHmacs') or {})
+        disabled = secret_hash(secret, 'false')
+        for legacy, canonical in aliases.items():
+            if legacy in old_env and canonical not in old_env and legacy not in new_env and canonical in new_env:
+                if old_env[legacy] != disabled or new_env[canonical] != disabled:
+                    raise ValueError('BRT alias migration must preserve disabled false flags')
+                new_env[legacy] = new_env.pop(canonical)
+        if new_env != old_env:
+            raise ValueError('unreviewed runtime environment drift')
+        fields.remove('envHmacs')
+    if not fields <= {'fingerprint', 'imageId', 'imageRef'} or 'imageId' not in fields:
+        raise ValueError('runtime settings changed beyond the approved image')
+
+
 class Store:
     def __init__(self, database, policy, secret_file, owner_uid=None, owner_gid=None):
         self.database = pathlib.Path(database)
@@ -275,7 +321,9 @@ class Store:
 
     def _secure(self):
         self.database.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.database.parent, 0o700)
+        # Owner-only traversal is required for private signed state; 0644
+        # would remove traversal and expose directory entries to other users.
+        os.chmod(self.database.parent, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         if self.database.exists():
             os.chmod(self.database, 0o600)
         if os.geteuid() == 0 and self.owner_uid is not None:
@@ -354,8 +402,8 @@ class Store:
         self._secure()
         return self.verify()
 
-    def _sign(self, payload):
-        return hmac.new(self.secret, _canonical(payload).encode(), hashlib.sha256).hexdigest()
+    def _sign(self, payload, *, secret=None):
+        return hmac.new(self.secret if secret is None else secret, _canonical(payload).encode(), hashlib.sha256).hexdigest()
 
     @staticmethod
     def _finding_document(row):
@@ -389,7 +437,7 @@ class Store:
         )
         return signature
 
-    def seal(self, snapshot, actor, reason, at=None):
+    def seal(self, snapshot, actor, reason, at=None, *, runtime_transition=None):
         actor = str(actor or "").strip()[:128]
         reason = str(reason or "").strip()[:1000]
         if not actor or not reason:
@@ -404,6 +452,13 @@ class Store:
         try:
             connection.execute("begin immediate")
             prior = connection.execute("select id from baselines where active=1").fetchone()
+            if runtime_transition is not None:
+                if not self.verify(connection).get('ok'):
+                    raise ValueError('desired-state integrity blocks runtime attestation')
+                baseline = self.active_baseline(connection)
+                if baseline is None:
+                    raise ValueError('sealed baseline required for runtime attestation')
+                validate_runtime_transition(baseline['snapshot'], snapshot_payload, runtime_transition, self.secret)
             if prior:
                 connection.execute("update baselines set active=0 where id=?", (prior["id"],))
             connection.execute(
@@ -422,6 +477,23 @@ class Store:
         finally:
             connection.close()
         return {"ok": True, "baselineId": baseline_id, "createdAt": _iso(now), "snapshotSha256": snapshot_sha, "signature": signature}
+
+    def verified_resolutions(self, finding_ids):
+        """Return positive, signed resolution evidence from one SQLite snapshot."""
+        self.initialize_if_needed()
+        connection = self.connect(readonly=True)
+        try:
+            connection.execute("begin")
+            if not self.verify(connection).get("ok"):
+                raise ValueError("desired-state resolution evidence failed verification")
+            result = {}
+            for finding_id in set(finding_ids):
+                row = connection.execute("select * from findings where id=?", (finding_id,)).fetchone()
+                if row is not None and row["resolved_at"] is not None:
+                    result[finding_id] = {"resolvedAt": _iso(row["resolved_at"]), "signature": row["signature"]}
+            return result
+        finally:
+            connection.close()
 
     def active_baseline(self, connection=None):
         own = connection is None
@@ -577,6 +649,10 @@ class Store:
         own = connection is None
         connection = connection or self.connect(readonly=True)
         try:
+            # Bind this complete verification to one key, then detect rotation
+            # before accepting it. Reading the file per retained row overloads
+            # filesystem/sensor work without strengthening the row HMACs.
+            secret = self.secret
             integrity = connection.execute("pragma integrity_check").fetchone()[0]
             triggers = {row["name"] for row in connection.execute("select name from sqlite_master where type='trigger'")}
             required = {"desired_state_baselines_no_update", "desired_state_baselines_no_delete", "desired_state_events_no_update", "desired_state_events_no_delete"}
@@ -584,7 +660,7 @@ class Store:
             for row in connection.execute("select * from baselines order by created_at,id"):
                 snapshot = json.loads(row["snapshot_json"])
                 document = {"id": row["id"], "createdAt": row["created_at"], "actor": row["actor"], "reason": row["reason"], "snapshotSha256": row["snapshot_sha256"], "snapshot": snapshot}
-                if hashlib.sha256(_canonical(snapshot).encode()).hexdigest() != row["snapshot_sha256"] or not hmac.compare_digest(self._sign(document), row["signature"]):
+                if hashlib.sha256(_canonical(snapshot).encode()).hexdigest() != row["snapshot_sha256"] or not hmac.compare_digest(self._sign(document, secret=secret), row["signature"]):
                     baselines_valid = False
             observations_valid = True
             for row in connection.execute("select * from observations order by id"):
@@ -593,11 +669,11 @@ class Store:
                     "snapshotSha256": row["snapshot_sha256"], "driftCount": row["drift_count"],
                     "criticalCount": row["critical_count"], "maintenanceActive": bool(row["maintenance_active"]),
                 }
-                if not hmac.compare_digest(self._sign(document), row["signature"]):
+                if not hmac.compare_digest(self._sign(document, secret=secret), row["signature"]):
                     observations_valid = False
             findings_valid = True
             for row in connection.execute("select * from findings order by id"):
-                if not row["signature"] or not hmac.compare_digest(self._sign(self._finding_document(row)), row["signature"]):
+                if not row["signature"] or not hmac.compare_digest(self._sign(self._finding_document(row), secret=secret), row["signature"]):
                     findings_valid = False
             events_valid = True
             previous = None
@@ -605,9 +681,11 @@ class Store:
             for row in connection.execute("select * from events order by sequence"):
                 event_count += 1
                 document = {"eventType": row["event_type"], "createdAt": row["created_at"], "actor": row["actor"], "payload": json.loads(row["payload_json"]), "previousSignature": row["previous_signature"]}
-                if row["previous_signature"] != previous or not hmac.compare_digest(self._sign(document), row["signature"]):
+                if row["previous_signature"] != previous or not hmac.compare_digest(self._sign(document, secret=secret), row["signature"]):
                     events_valid = False
                 previous = row["signature"]
+            if not hmac.compare_digest(secret, self.secret):
+                raise ValueError("desired-state HMAC key changed during verification")
             ok = integrity == "ok" and required.issubset(triggers) and baselines_valid and observations_valid and findings_valid and events_valid
             return {"ok": ok, "sqlite": integrity, "appendOnlyTriggers": required.issubset(triggers), "baselineSignaturesValid": baselines_valid, "observationSignaturesValid": observations_valid, "findingSignaturesValid": findings_valid, "eventChainValid": events_valid, "eventCount": event_count, "lastEventSignature": previous}
         except (sqlite3.Error, ValueError, json.JSONDecodeError, OSError) as exc:
@@ -624,7 +702,8 @@ class Store:
         self.initialize_if_needed()
         target = pathlib.Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(target.parent, 0o700)
+        # Evidence directories contain private snapshots and require owner-only traversal.
+        os.chmod(target.parent, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         source = self.connect(readonly=True)
         destination = sqlite3.connect(target)
         try:

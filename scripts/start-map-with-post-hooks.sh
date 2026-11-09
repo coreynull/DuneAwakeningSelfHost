@@ -31,6 +31,25 @@ if [[ ! -f "$env_file" ]]; then
   exit 2
 fi
 
+env_file_value() {
+  local key="$1"
+  awk -F= -v key="$key" '
+    $1 == key {
+      sub(/^[^=]*=/, "")
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      gsub(/^["'\''"]|["'\''"]$/, "")
+      print
+      exit
+    }
+  ' "$env_file" 2>/dev/null
+}
+logoff_patch_enabled="${DUNE_LOGOFF_TIMER_RUNTIME_PATCH_ENABLED:-$(env_file_value DUNE_LOGOFF_TIMER_RUNTIME_PATCH_ENABLED)}"
+logoff_patch_enabled="${logoff_patch_enabled:-true}"
+
+if [[ -f "$script_dir/ensure-map-network-capacity.py" ]]; then
+  python3 "$script_dir/ensure-map-network-capacity.py" "$env_file"
+fi
+
 if [[ -x "$script_dir/compose-files.sh" ]]; then
   COMPOSE_FILES="$("$script_dir/compose-files.sh" "$env_file")"
   export COMPOSE_FILES
@@ -42,6 +61,22 @@ for compose_file in "${compose_files[@]}"; do
   [[ -n "$compose_file" ]] && compose+=(-f "$compose_file")
 done
 compose+=(--env-file "$env_file")
+map_catalog_script="$script_dir/map_catalog.py"
+if [[ ! -x "$map_catalog_script" ]]; then
+  printf 'map catalog helper is missing or not executable: %s\n' "$map_catalog_script" >&2
+  exit 1
+fi
+all_map_services="$("$map_catalog_script" "$env_file" --field all-services --write-cache)"
+for service in "${services[@]}"; do
+  case " $all_map_services " in
+    *" $service "*) ;;
+    *) printf 'unknown Compose map worker: %s\n' "$service" >&2; exit 2 ;;
+  esac
+done
+all_map_profiles="$("$map_catalog_script" "$env_file" --field all-profiles)"
+for profile in $all_map_profiles; do
+  compose+=(--profile "$profile")
+done
 
 seed_neighbors() {
   if [[ ! -x "$script_dir/seed-gateway-neighbor.sh" ]]; then
@@ -76,7 +111,7 @@ case "${DUNE_LANDSRAAD_CORIOLIS_GUARD_ENABLED:-true}" in
 esac
 
 printf 'starting/recreating map services with post hooks: %s\n' "${services[*]}"
-"${compose[@]}" up -d --force-recreate --no-deps "${services[@]}"
+"${compose[@]}" up --pull never -d --force-recreate --no-deps "${services[@]}"
 
 seed_neighbors
 
@@ -86,7 +121,7 @@ elif [[ -x "$script_dir/verify-rmq-auth-path.sh" ]]; then
   ENV_FILE="$env_file" "$script_dir/verify-rmq-auth-path.sh"
 fi
 
-case "${DUNE_LOGOFF_TIMER_RUNTIME_PATCH_ENABLED:-true}" in
+case "$logoff_patch_enabled" in
   1|true|yes|on|TRUE|True|YES|ON)
     if [[ -x "$script_dir/patch-logoff-timers-runtime.sh" ]]; then
       "$script_dir/patch-logoff-timers-runtime.sh" --local --dry-run

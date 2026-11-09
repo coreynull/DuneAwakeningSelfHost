@@ -1,5 +1,17 @@
 # Operations
 
+## Qualified PostgreSQL security image
+
+The primary, optional local replica, remote-replica helpers, and disposable
+restore drill default to `snape/dune-postgres:security-17.4-alpine321-fc13`.
+The image is an Alpine package refresh layered on exact vendor image ID
+`sha256:3a6efbd2d908f0acdafca6f4a6ffe5a3eb77d4ec634d6f9359bfcb0a36538531`;
+it preserves PostgreSQL server 17.4. Build it only from the prequalified local
+base alias with `scripts/build-postgres-security-image.sh`, then require a zero
+HIGH/CRITICAL image scan, an isolated database smoke test, and a current logical
+dump restore before handoff. Primary and standby rollout remains operator-only
+and must preserve the zero-player, fresh-backup, replication, and rollback gates.
+
 This page covers state management for the Compose lab. Commands assume the default `.env` file; pass `--env-file` directly if you use a different environment.
 
 Set `CONTAINER_RUNTIME=podman` when testing with Podman-compatible Compose commands:
@@ -250,59 +262,54 @@ Admin alerts can include the same signal when
 `DUNE_PLAYER_PRESENCE_INFRA_ADMIN_ALERTS_ENABLED=true`; the FLS publication
 subcheck is controlled by `DUNE_PLAYER_PRESENCE_FLS_PUBLICATION_HEALTH_ENABLED`.
 
-### HP3 on map travel from FLS DNS failure
+### HP3 when Funcom FLS identity verification fails
 
-On 2026-05-28, live players hit HP3 disconnects while entering or leaving
-Overmap and Deep Desert. The destination map logs showed
-`Auth_VerifyFlsServerToken` failing with `Couldn't resolve host name` for
-`sb-retail.fls.funcom.com`, followed by `VerifyIdentity Failed` and the HP3
-`NMT_Failure` rejection. This was not a bad player token; a retry with the same
-identity could succeed after DNS recovered.
+`Pending Connection Failure` is Unreal's general network-failure category. In
+the 2026-10-21 production incident, the map log identified the specific failure
+as `sbHP3$ Server could not verify player's identity.` during
+`VerifyFlsIdentity`. The map's request to
+`https://sb-retail.fls.funcom.com/api/Auth_VerifyFlsServerToken` timed out after
+connecting to an obsolete pinned IPv4 address whose certificate did not match
+the FLS hostname. Removing the stale entries restored current DNS resolution
+and successful TLS verification from a representative map.
 
-The persistent fix is `compose.fls-ipv4-hosts.yaml`. Keep
-`DUNE_FLS_IPV4_HOSTS_ENABLED=true` for live stacks and include the compose files
-from `scripts/compose-files.sh .env`. The overlay pins
-`sb-retail.fls.funcom.com` for Director, Gateway, TextRouter, Survival, and all
-map containers because map containers perform `Auth_VerifyFlsServerToken`
-during travel/login:
+This check is a server-to-Funcom HTTPS request, so a failure can reject
+internal and external players alike. Hairpin routing affects LAN clients that
+reach the server through its public address; it does not explain this FLS
+identity-verification error.
 
-```bash
-IFS=: read -r -a compose_files <<< "$(./scripts/compose-files.sh .env)"
-compose_args=()
-for file in "${compose_files[@]}"; do
-  compose_args+=("-f" "$file")
-done
-docker compose --env-file .env "${compose_args[@]}" config \
-  | awk '/^  overmap:/{flag=1} flag && /^  [[:alnum:]_-]+:/{if ($1 != "overmap:") exit} flag{print}' \
-  | grep -E 'extra_hosts|sb-retail'
-```
+The previous workaround for a 2026-05-28 DNS-resolution incident pinned
+`sb-retail.fls.funcom.com` to two IPv4 addresses. Those addresses became stale.
+Use normal DNS for FLS and do not enable static host pins. The old
+`compose.fls-ipv4-hosts.yaml` file is now an empty compatibility overlay, so an
+older `COMPOSE_FILES` entry cannot reintroduce the pins.
 
-For an immediate no-restart live mitigation, add the same host pin to every
-running Dune service container after verifying the host is `kspls0`:
+For a live incident, verify the target host before editing its environment or
+running-container host files:
 
 ```bash
 hostname
-for c in $(docker ps --format '{{.Names}}' | grep '^dune_server-' | grep -Ev 'postgres|rmq|admin-panel|ingress'); do
-  docker exec "$c" sh -lc "grep -q 'sb-retail.fls.funcom.com' /etc/hosts || printf '13.107.253.70 sb-retail.fls.funcom.com\n13.107.226.70 sb-retail.fls.funcom.com\n' >> /etc/hosts"
-done
 ```
 
-Verify the runtime resolver path from a representative map:
+Only continue with a live change when that prints `kspls0`. Remove
+`compose.fls-ipv4-hosts.yaml` from `COMPOSE_FILES` in `.env` if it is listed,
+then remove existing `sb-retail.fls.funcom.com` lines from running Dune app
+containers' `/etc/hosts`. Do not restart maps just to clear those entries.
+
+Check a representative map's resolver and TLS path:
 
 ```bash
-docker exec dune_server-overmap-1 sh -lc 'python3 - <<PY
-import socket
-for row in socket.getaddrinfo("sb-retail.fls.funcom.com", 443, 0, socket.SOCK_STREAM):
-    print(row[-1][0])
-PY'
+docker exec dune_server-survival-1 getent ahostsv4 sb-retail.fls.funcom.com
+docker exec dune_server-survival-1 curl --disable --noproxy '*' -sS \
+  --connect-timeout 5 --max-time 10 -o /dev/null \
+  -w 'remote=%{remote_ip} http=%{http_code} tls_verify=%{ssl_verify_result}\n' \
+  https://sb-retail.fls.funcom.com/
 ```
 
-Then check recent travel destinations for recurrence:
-
-```bash
-docker logs --since 15m dune_server-overmap-1 dune_server-deep-desert-1 dune_server-arrakeen-1 2>&1 \
-  | grep -Ei 'HP3|Couldn.t resolve host|Auth_VerifyFlsServerToken|VerifyIdentity Failed' || true
-```
+The FLS A record can change. A successful unauthenticated probe returns HTTP
+403 with `tls_verify=0`; that confirms DNS, connectivity, and certificate
+validation. Check recent map logs for further `VerifyFlsIdentity` failures
+afterward.
 
 If the parent server row itself is missing from the browser, nudge `gateway`
 instead of Director. This is also the recovery for accidental FLS identity
@@ -376,6 +383,17 @@ with:
 ```
 
 The dry run must show the target containers' logoff timer arrays as `0 0 0 0`.
+
+After a Funcom update the patch offsets are re-derived from the running binary
+(`DUNE_LOGOFF_TIMER_AUTO_REMAP_ENABLED`, default true). The remap finds the
+backend timer by its function prologue and, if that drifts, by an anchor scan on
+the deadline clamp and duration reload. If the client-visible UI timer globals
+cannot be found it patches backend-only instead of leaving the build unpatched.
+`scripts/update-owned-steam-build-and-restart.sh` runs
+`scripts/test-logoff-timer-remap.sh` against the new server binary before the
+restart; run it by hand on any extracted `DuneSandboxServer-Linux-Shipping`.
+The runtime patch is in-memory, so it is reapplied by the post-start hooks after
+every map start.
 On 2026-06-02, DD1 lost instant logout because it was manually recreated without
 that post-start step; the process came back with `30`/`300` second runtime
 timers despite correct INI values.
@@ -600,13 +618,12 @@ director heartbeat to FLS succeeds
 current_alive_active=31 active_servers=31 partitions=31
 ```
 
-Server-browser naming is split across the control plane based on the observed
-in-game browser. `config/gateway.ini` `[gateway].display_name` is the
-parent/top row and must stay the branded server title. `WORLD_NAME` and
-`DUNE_SERVER_DISPLAY_NAME` are the nested/details row and must stay the
-feature-list description. To refresh the server-browser rows without
-disconnecting existing map sessions, recreate only `gateway`, then reseed the
-gateway/Postgres bridge neighbor entries:
+The server-browser title appears in separate parent and nested rows.
+`config/gateway.ini` `[gateway].display_name`, `PUBLIC_SERVER_NAME`,
+`WORLD_NAME`, and `DUNE_SERVER_DISPLAY_NAME` must all contain the exact same
+approved title. To refresh the server-browser rows without disconnecting
+existing map sessions, recreate only `gateway`, then reseed the gateway/Postgres
+bridge neighbor entries:
 
 ```bash
 docker compose --env-file .env up -d --force-recreate --no-deps gateway
@@ -827,9 +844,11 @@ For the remote standby layout, use the snapshot helper instead of pulling dumps 
 ./scripts/install-replica-snapshot-timer.sh .env replica.example.lan /srv/dune-postgres-replica
 ```
 
-This keeps rolling dumps on the remote replica host. The installed timer runs as
-the installing local user by default so SSH uses that user's keys and host
-aliases. Use `DUNE_REPLICA_SNAPSHOT_USER` and
+This streams rolling dumps from the remote replica to the local
+`backups/replica-snapshots` path. The installed timer runs as the installing
+local user by default so SSH uses that user's keys and host aliases. The
+snapshot path is required before the timer runs, which lets it use the mounted
+backup filesystem. Use `DUNE_REPLICA_SNAPSHOT_USER` and
 `DUNE_REPLICA_SNAPSHOT_GROUP` only for a dedicated service account with working
 remote SSH credentials. Use it alongside daily offline full-state backups.
 
@@ -916,3 +935,60 @@ Before changing `DUNE_IMAGE_TAG`:
 - Attempt Hagga Basin login before testing cross-map routing.
 
 Rollback means restoring the old image tag and restoring state from the backups taken before the upgrade. Do not mix a downgraded image tag with post-upgrade database state unless you have verified the schema did not change.
+
+## Admin ingress security image
+
+`admin-panel-ingress` uses the locally qualified
+`snape/dune-admin-caddy:security-2.11.3` image by default. Build it from the
+exact running image with `scripts/build-admin-ingress-security-image.sh`. The
+builder applies only Alpine package security updates, requires the Caddy
+application version and commit to remain identical, validates the production
+Caddyfile, and verifies the patched Brotli package. Promotion must scan the
+candidate for zero CRITICAL findings, preserve the previous image ID for
+rollback, recreate only `admin-panel-ingress` with `--no-deps --pull never`,
+verify the private HTTP endpoint, and prove every game-worker container ID is
+unchanged.
+
+## Database utility security image
+
+`docker-api-broker`, `rmq-auth-shim`, `db-init`, and `admin-panel` use the
+qualified `snape/dune-db-utils:python-security-2173753` image by default. The
+image preserves the exact 2173753 vendor payload while updating Alpine
+packages, Python, native libraries, and packaging tools. Before promotion,
+require the exact qualified image ID, a fresh zero-HIGH/zero-CRITICAL scan, the
+native admin deployment test-only suite, a fresh scoped backup, and a recorded
+rollback image. Recreate only the three running utility services with
+`--no-deps --pull never`; `db-init` is not a long-running service. Verify the
+broker and admin health checks, RabbitMQ authentication paths, the private
+admin ingress, and unchanged game-worker container IDs. Do not substitute this
+image for `admin-chat-commands`, which uses a different vendor payload.
+
+`admin-chat-commands` instead uses the separately qualified
+`snape/dune-db-utils:python-security-2162777` image by default. It must be built
+from the exact 2162777 vendor image, retain that image's complete base-layer
+lineage, and pass a fresh zero-HIGH/zero-CRITICAL scan plus the native chat
+tests. Before promotion, record the old and candidate image IDs, take a fresh
+scoped backup, and verify a candidate `--healthcheck` invocation. Recreate only
+`admin-chat-commands` with `--no-deps --pull never`, then verify its health and
+prove every game-worker container ID is unchanged.
+
+The chat service runs as `1000:1001`, matching its mode-0600 Compose secret
+files. Keep `cap_drop: ALL`; do not restore root capabilities merely to bypass
+secret ownership. A candidate health probe must run under this same UID/GID so
+the subsequent recreate cannot introduce a secret-permission failure.
+
+## RabbitMQ security image
+
+`admin-rmq`, `game-rmq`, and the disposable restore drill use the version-bound
+`snape/dune-rabbitmq:security-2168446` image by default. Build it with
+`scripts/build-rabbitmq-security-image.sh`; the builder rejects any base image
+other than the approved immutable vendor ID, preserves every vendor layer, and
+requires RabbitMQ 3.13.7 after applying Alpine security updates.
+
+Promotion requires a fresh zero-HIGH/zero-CRITICAL scan, an isolated broker
+startup and diagnostics check, a fresh verified backup of both broker states,
+and recorded rollback tags. Recreate the brokers one at a time with
+`--no-deps --pull never`, verify their health and authentication paths between
+steps, and prove every game-worker container ID is unchanged. A new vendor
+RabbitMQ image must be separately rebuilt and qualified; do not retag it over
+this approved image.

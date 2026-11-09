@@ -1,0 +1,1352 @@
+x-game-server-preload-env: &game-server-preload-env
+  DUNE_ENABLE_LINUX_SERVER_PRELOAD: ${DUNE_ENABLE_LINUX_SERVER_PRELOAD:-false}
+  DUNE_LINUX_SERVER_PRELOAD: ${DUNE_LINUX_SERVER_PRELOAD:-}
+  DUNE_LINUX_SERVER_PRELOAD_PARTITIONS: ${DUNE_LINUX_SERVER_PRELOAD_PARTITIONS:-}
+  DUNE_PROBE_LOADER_LOG: ${DUNE_PROBE_LOADER_LOG:-/tmp/dune-server-probe-loader.log}
+  DUNE_PROBE_LOADER_TARGET: ${DUNE_PROBE_LOADER_TARGET:-}
+  DUNE_PROBE_LOADER_FORCE: ${DUNE_PROBE_LOADER_FORCE:-false}
+  DUNE_PROBE_LOADER_SNAPSHOT_DELAY_SECONDS: ${DUNE_PROBE_LOADER_SNAPSHOT_DELAY_SECONDS:-0}
+  DUNE_PROBE_LOADER_UE_DELAYED_PROBE_SECONDS: ${DUNE_PROBE_LOADER_UE_DELAYED_PROBE_SECONDS:-0}
+  DUNE_PROBE_LOADER_UE_FNAME_DIAGNOSTICS: ${DUNE_PROBE_LOADER_UE_FNAME_DIAGNOSTICS:-false}
+  DUNE_PROBE_LOADER_UE_FNAME_DIAGNOSTICS_MAX: ${DUNE_PROBE_LOADER_UE_FNAME_DIAGNOSTICS_MAX:-16}
+  DUNE_PROBE_LOADER_SCAN_ENABLED: ${DUNE_PROBE_LOADER_SCAN_ENABLED:-false}
+  DUNE_PROBE_LOADER_SCAN_PRESETS: ${DUNE_PROBE_LOADER_SCAN_PRESETS:-}
+  DUNE_PROBE_LOADER_SCAN_STRINGS: ${DUNE_PROBE_LOADER_SCAN_STRINGS:-}
+  DUNE_PROBE_LOADER_SCAN_SIGNATURES: ${DUNE_PROBE_LOADER_SCAN_SIGNATURES:-}
+  DUNE_PROBE_LOADER_SCAN_PATH_FILTER: ${DUNE_PROBE_LOADER_SCAN_PATH_FILTER:-}
+  DUNE_PROBE_LOADER_SCAN_LOG_MAPPINGS: ${DUNE_PROBE_LOADER_SCAN_LOG_MAPPINGS:-false}
+  DUNE_PROBE_LOADER_SCAN_MAX_HITS_PER_NEEDLE: ${DUNE_PROBE_LOADER_SCAN_MAX_HITS_PER_NEEDLE:-16}
+  DUNE_PROBE_LOADER_SCAN_MAX_MAPPING_BYTES: ${DUNE_PROBE_LOADER_SCAN_MAX_MAPPING_BYTES:-536870912}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_ROOTS: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_ROOTS:-false}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_INCLUDE_ANONYMOUS_RW: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_INCLUDE_ANONYMOUS_RW:-false}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_INCLUDE_PRIVATE_RW: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_INCLUDE_PRIVATE_RW:-false}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_MAPPING_BYTES: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_MAPPING_BYTES:-268435456}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_CANDIDATES: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_CANDIDATES:-8}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MIN_OBJECT_ARRAY_ELEMENTS: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MIN_OBJECT_ARRAY_ELEMENTS:-1}
+  DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES: ${DUNE_PROBE_LOADER_UE_AUTO_DISCOVER_MAX_REJECTED_FNAME_SAMPLES:-0}
+
+x-game-server-env: &game-server-env
+  DUNE_SERVER_LOGIN_PASSWORD: ${DUNE_SERVER_LOGIN_PASSWORD:-}
+  DUNE_SERVER_DISPLAY_NAME: ${DUNE_SERVER_DISPLAY_NAME:-}
+  DUNE_SERVER_STARTUP_EXECCMDS: ${DUNE_SERVER_STARTUP_EXECCMDS:-}
+  DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS: ${DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS:-false}
+  DUNE_IGW_BIND_ADDRESS: ${DUNE_IGW_BIND_ADDRESS:-}
+  DUNE_DISABLE_MULTIHOME: ${DUNE_DISABLE_MULTIHOME:-false}
+  DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}
+  DUNE_BUILDING_PIECE_LIMIT: ${DUNE_BUILDING_PIECE_LIMIT:-10000}
+  DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED: ${DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED:-false}
+  DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED: ${DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED:-false}
+  DUNE_SUBFIEF_CAP_BINARY_TARGET: ${DUNE_SUBFIEF_CAP_BINARY_TARGET:-subfief}
+  DUNE_SUBFIEF_CAP: ${DUNE_SUBFIEF_CAP:-6}
+  DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED:-false}
+  DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED:-false}
+  DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_ENABLED: ${DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_ENABLED:-false}
+  DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED:-false}
+  DUNE_OODLE_LIBRARY: ${DUNE_OODLE_LIBRARY:-/tmp/oodle/liboodle-data-shared.so}
+
+x-game-server-base: &game-server-base
+  image: registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}
+  dns:
+    - 1.1.1.1
+    - 8.8.8.8
+  environment:
+    <<: [*game-server-env, *game-server-preload-env]
+    WORLD_NAME: ${WORLD_NAME}
+  depends_on:
+    - postgres
+    - admin-rmq
+    - game-rmq
+
+x-rg-bin-volume: &rg-bin-volume ./vendor/bin/rg:/usr/local/bin/rg:ro
+x-busybox-bin-volume: &busybox-bin-volume ./vendor/bin/busybox:/usr/local/bin/busybox:ro
+x-jq-bin-volume: &jq-bin-volume ./vendor/bin/jq:/usr/local/bin/jq:ro
+x-curl-bin-volume: &curl-bin-volume ./vendor/bin/curl:/usr/local/bin/curl:ro
+
+x-game-server-command:
+  run: &cmd-run /workspace/scripts/run_server_safe.sh
+  farm-region: &cmd-farm-region -FarmRegion=${WORLD_REGION}
+  fls-token: &cmd-fls-token -ini:engine:[FuncomLiveServices]:ServiceAuthToken=${FLS_SECRET}
+  fls-env: &cmd-fls-env -ini:engine:[FuncomLiveServices]:DefaultFlsEnvironment=${DUNE_FLS_ENV:-retail}
+  server-command-auth-token: &cmd-server-command-auth-token -ini:engine:[FuncomLiveServices]:ServerCommandsAuthToken=${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
+  notification-system: &cmd-notification-system -ini:engine:[ConsoleVariables]:server.NotificationSystem.Enabled=${DUNE_SERVER_NOTIFICATION_SYSTEM_ENABLED:-false}
+  server-name: &cmd-server-name -ini:engine:[OnlineSubsystem]:ServerName=${WORLD_UNIQUE_NAME}
+  server-login-password: &cmd-server-login-password -ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=${DUNE_SERVER_LOGIN_PASSWORD:-}
+  datacenter: &cmd-datacenter -ini:engine:[OnlineSubsystem]:DatacenterId=${WORLD_DATACENTER_ID}
+  db-host: &cmd-db-host -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseHost=postgres:5432
+  db-user: &cmd-db-user -ini:game:[DuneDatabaseInterfacePSQL]:DatabaseUser=dune
+  db-password: &cmd-db-password -ini:game:[DuneDatabaseInterfacePSQL]:DatabasePassword=${POSTGRES_DUNE_PASSWORD}
+  rmq-tls: &cmd-rmq-tls -RMQGameTlsEnabled=true
+  external-address: &cmd-external-address -ExternalAddress=${EXTERNAL_ADDRESS}
+  rmq-game-host: &cmd-rmq-game-host --RMQGameHostname=game-rmq
+  rmq-game-port: &cmd-rmq-game-port --RMQGamePort=5672
+  rmq-admin-host: &cmd-rmq-admin-host --RMQAdminHostname=admin-rmq
+  rmq-admin-port: &cmd-rmq-admin-port --RMQAdminPort=5672
+  multihome: &cmd-multihome -MultiHome=$$POD_IP
+
+services:
+
+  postgres:
+    image: registry.funcom.com/funcom/self-hosting/igw-postgres:17.4-alpine-fc-13
+    restart: unless-stopped
+    mac_address: 02:42:ac:1f:f0:02
+    environment:
+      POSTGRES_DB: dune
+      POSTGRES_USER: dune
+      POSTGRES_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      POSTGRES_SUPER_PASSWORD: ${POSTGRES_SUPER_PASSWORD}
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:15431:5432"
+      - "${POSTGRES_BRIDGE_BIND_ADDRESS:-172.31.240.1}:${POSTGRES_BRIDGE_PUBLIC_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dune -d dune || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      default:
+        ipv4_address: 172.31.240.2
+
+  admin-rmq:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-rabbitmq:${DUNE_IMAGE_TAG}
+    hostname: admin-rmq
+    mac_address: 02:42:ac:1f:f0:03
+    environment:
+      RMQ_AUTH_BACKEND_1: cache
+      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
+      FuncomLiveServices__RmqTlsEnabled: "false"
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./config/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./config/rabbitmq-admin.conf:/etc/rabbitmq/conf.d/99-dune.conf:ro
+      - ./data/rabbitmq/admin:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:15672:15672"
+      - "127.0.0.1:5673:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      default:
+        ipv4_address: 172.31.240.3
+
+  game-rmq:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-rabbitmq:${DUNE_IMAGE_TAG}
+    hostname: game-rmq
+    mac_address: 02:42:ac:1f:f0:04
+    environment:
+      RMQ_AUTH_BACKEND_1: cache
+      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
+      FuncomLiveServices__RmqTlsEnabled: "true"
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./config/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./config/rabbitmq-game.conf:/etc/rabbitmq/conf.d/99-dune.conf:ro
+      - ./config/tls/rabbitmq/ca.crt:/etc/rabbitmq/cacert.pem:ro
+      - ./config/tls/rabbitmq/server.crt:/etc/rabbitmq/cert.pem:ro
+      - ./config/tls/rabbitmq/server.key:/etc/rabbitmq/key.pem:ro
+      - ./data/rabbitmq/game:/var/lib/rabbitmq
+    ports:
+      - "${GAME_RMQ_HTTP_BIND_ADDRESS:-127.0.0.1}:${GAME_RMQ_PUBLIC_HTTP_PORT:-15673}:15672"
+      - "${GAME_RMQ_BIND_ADDRESS:-0.0.0.0}:${GAME_RMQ_PUBLIC_PORT:-31982}:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      default:
+        ipv4_address: 172.31.240.4
+
+  rmq-auth-shim:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-db-utils:${DUNE_IMAGE_TAG}
+    mac_address: 02:42:ac:1f:f0:07
+    working_dir: /workspace
+    environment:
+      WORLD_UNIQUE_NAME: ${WORLD_UNIQUE_NAME}
+      TEXT_ROUTER_AUTH_BASE: http://text-router:8080
+      DUNE_RMQ_MANAGEMENT_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
+      DUNE_RMQ_MANAGEMENT_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-}
+    command:
+      - /workspace/scripts/rmq_auth_shim.py
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - .:/workspace:ro
+    depends_on:
+      - text-router
+    networks:
+      default:
+        ipv4_address: 172.31.240.7
+
+  db-init:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-db-utils:${DUNE_IMAGE_TAG}
+    working_dir: /root/PSQL
+    mac_address: 02:42:ac:1f:f0:42
+    environment:
+      PYTHONPATH: /root/PSQL
+      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+    command:
+      - /workspace/scripts/bootstrap_db.py
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - .:/workspace:ro
+    depends_on:
+      - postgres
+    networks:
+      default:
+        ipv4_address: 172.31.240.42
+
+  director:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-bg-director:${DUNE_IMAGE_TAG}
+    # Director currently terminates on malformed login envelopes instead of
+    # rejecting them. Keep the control plane self-healing while the upstream
+    # validation bug is worked around.
+    restart: unless-stopped
+    mac_address: 02:42:ac:1f:f0:05
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    command:
+      - --RMQGameHostname
+      - game-rmq
+      - --RMQGamePort
+      - "5672"
+      - --RMQAdminHostname
+      - admin-rmq
+      - --RMQAdminPort
+      - "5672"
+    environment:
+      Database__address: postgres
+      Database__port: "5432"
+      Database__user: dune
+      Database__password: ${POSTGRES_DUNE_PASSWORD}
+      Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+      OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
+      OPT_DISPLAY_NAME: ${WORLD_NAME}
+      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
+      FuncomLiveServices__RmqTlsEnabled: "true"
+      BATTLEGROUP_REGION_NAME: ${WORLD_REGION}
+      HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
+      HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
+      FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./config/director.ini:/etc/app/conf.d/director.ini:ro
+    depends_on:
+      - postgres
+      - admin-rmq
+      - game-rmq
+    networks:
+      default:
+        ipv4_address: 172.31.240.5
+
+  text-router:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}
+    mac_address: 02:42:ac:1f:f0:06
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    command:
+      - --RMQGameHostname
+      - game-rmq
+      - --RMQGamePort
+      - "5672"
+      - --RMQAdminHostname
+      - admin-rmq
+      - --RMQAdminPort
+      - "5672"
+    environment:
+      DuneDatabaseInterfacePSQL_DatabaseHost: postgres
+      DuneDatabaseInterfacePSQL_DatabasePort: "5432"
+      DuneDatabaseInterfacePSQL_DatabaseUser: dune
+      DuneDatabaseInterfacePSQL_DatabasePassword: ${POSTGRES_DUNE_PASSWORD}
+      DuneDatabaseInterfacePSQL_DatabaseName: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
+      Database__address: postgres
+      Database__port: "5432"
+      Database__user: dune
+      Database__password: ${POSTGRES_DUNE_PASSWORD}
+      Database__database: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+      OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
+      OPT_DISPLAY_NAME: ${WORLD_NAME}
+      BATTLEGROUP_REGION_NAME: ${WORLD_REGION}
+      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
+      FuncomLiveServices__RmqTlsEnabled: "true"
+      BATTLEGROUP_LANGUAGE: en-US
+      HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
+      HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
+      FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
+    depends_on:
+      - postgres
+      - admin-rmq
+      - game-rmq
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+    networks:
+      default:
+        ipv4_address: 172.31.240.6
+
+  gateway:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}
+    mac_address: 02:42:ac:1f:f0:28
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    command:
+      - sh
+      - -lc
+      - >-
+        sleep 30;
+        exec python -m service
+        -c /Tools/Battlegroups/GatewayService/service/configs/service.conf
+        --RMQGameHostname ${GAME_RMQ_PUBLIC_HOST:-${EXTERNAL_ADDRESS}}
+        --RMQGamePort ${GAME_RMQ_PUBLIC_PORT:-31982}
+        --RMQGameHttpPort ${GAME_RMQ_PUBLIC_HTTP_PORT:-15673}
+    environment:
+      DuneDatabaseInterfacePSQL_DatabaseHost: postgres
+      DuneDatabaseInterfacePSQL_DatabasePort: "5432"
+      DuneDatabaseInterfacePSQL_DatabaseUser: dune
+      DuneDatabaseInterfacePSQL_DatabasePassword: ${POSTGRES_DUNE_PASSWORD}
+      DuneDatabaseInterfacePSQL_DatabaseName: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      FuncomLiveServices__ServiceAuthToken: ${FLS_SECRET}
+      FuncomLiveServices__RmqTlsEnabled: "true"
+      FuncomLiveServices__BattlegroupAuthorizationPreset: BattlegroupInternal
+      FuncomLiveServices__DefaultFlsEnvironment: ${DUNE_FLS_ENV:-retail}
+      BATTLEGROUP_DISPLAY_NAME: ${PUBLIC_SERVER_NAME:-${WORLD_NAME}}
+      OPT_SERVERNAME: ${WORLD_UNIQUE_NAME}
+      OPT_DISPLAY_NAME: ${PUBLIC_SERVER_NAME:-${WORLD_NAME}}
+      gateway_farm_api_key: ${FLS_SECRET}
+      RMQ_HTTP_TOKEN_AUTH_SECRET: ${RMQ_HTTP_TOKEN_AUTH_SECRET}
+      HOST_DATACENTER_ID: ${WORLD_DATACENTER_ID}
+      HOST_DATACENTER_IP_ADDRESS: ${EXTERNAL_ADDRESS}
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./config/gateway.ini:/etc/app/conf.d/gateway.ini:ro
+    depends_on:
+      - postgres
+      - game-rmq
+    networks:
+      default:
+        ipv4_address: 172.31.240.40
+
+  survival:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - -ini:game:[/Script/DuneSandbox.BuildingSettings]:m_BaseBackupToolTimeRestrictionInSeconds=0
+      - -PartitionIndex=1
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.10
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7777:7777/udp"
+      - "7888:7888/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.10
+
+  overmap:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Systems/Overmap/Overmap.Overmap
+      - -Port=7778
+      - -IGWPort=7889
+      - -PartitionIndex=2
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.11
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7778:7778/udp"
+      - "7889:7889/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/overmap:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.11
+
+  arrakeen:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/SocialHubs/Arrakeen/SH_Arrakeen.SH_Arrakeen
+      - -Port=7779
+      - -IGWPort=7890
+      - -PartitionIndex=3
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.12
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7779:7779/udp"
+      - "7890:7890/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/arrakeen:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.12
+
+  harko-village:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/SocialHubs/HarkoVillage/SH_HarkoVillage.SH_HarkoVillage
+      - -Port=7780
+      - -IGWPort=7891
+      - -PartitionIndex=4
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.13
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7780:7780/udp"
+      - "7891:7891/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/harko-village:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.13
+
+  testing-hephaestus:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/OverlandMaps_Story/WreckOfTheHephaestus/CB_Story_Hephaestus/CB_Story_Hephaestus.CB_Story_Hephaestus
+      - -Port=7781
+      - -IGWPort=7892
+      - -PartitionIndex=5
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.14
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7781:7781/udp"
+      - "7892:7892/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/testing-hephaestus:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.14
+
+  testing-carthag:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/OverlandMaps_Story/BeneathOldCarthag/CB_Story_Ecolab_Carthag/CB_Story_Ecolab_Carthag.CB_Story_Ecolab_Carthag
+      - -Port=7782
+      - -IGWPort=7893
+      - -PartitionIndex=6
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.15
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7782:7782/udp"
+      - "7893:7893/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/testing-carthag:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.15
+
+  testing-waterfat:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/OverlandMaps_Story/WaterFatManor/CB_Story_WaterFatManor.CB_Story_WaterFatManor
+      - -Port=7783
+      - -IGWPort=7894
+      - -PartitionIndex=7
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.16
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7783:7783/udp"
+      - "7894:7894/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/testing-waterfat:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.16
+
+  deep-desert:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/Arrakis/DeepDesert_1/DeepDesert_1.DeepDesert_1
+      - -Port=7784
+      - -IGWPort=7895
+      - -PartitionIndex=8
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.17
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+      DUNE_USERGAME_CONFIG_PATH: /workspace/config/UserGame.deep-desert-coriolis.ini
+      DUNE_USERENGINE_CONFIG_PATH: /workspace/config/UserEngine.deep-desert.ini
+      DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}
+      DUNE_BUILDING_PIECE_LIMIT: ${DUNE_BUILDING_PIECE_LIMIT:-10000}
+      DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED: ${DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED:-false}
+      DUNE_SUBFIEF_CAP_BINARY_TARGET: ${DUNE_SUBFIEF_CAP_BINARY_TARGET:-all}
+      DUNE_SUBFIEF_CAP: ${DUNE_SUBFIEF_CAP:-6}
+      DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED: "false"
+      DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED: "false"
+      DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_ENABLED: "false"
+      DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_MODE: "dd-totem-groups"
+      DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_TARGET: "overlay"
+      DUNE_BRT_DD_BUILDABLE_MAP_REGION_OVERLAY_PAK: "/home/dune/server/DuneSandbox/Content/Paks/pakchunk9999-LinuxServer.pak"
+      DUNE_BRT_DD_NARROW_TOOL_STATE_BINARY_PATCH_ENABLED: "false"
+      DUNE_BRT_DD_NARROW_TOOL_STATE_PATCH_SITES: "can-use-empty-context,state-empty-context,failure-reason-action-method,can-use-region-fail-join"
+      DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED: "false"
+      DUNE_OODLE_LIBRARY: ${DUNE_OODLE_LIBRARY:-/tmp/oodle/liboodle-data-shared.so}
+    ports:
+      - "7784:7784/udp"
+      - "7895:7895/udp"
+    volumes:
+      - .:/workspace:ro
+      - ${DUNE_OODLE_HOST_LIBRARY:-/home/keith/Documents/code/DuneAwakeningSelfHost/backups/operator-oodle/liboodle-data-shared.so}:/tmp/oodle/liboodle-data-shared.so:ro
+      - ./data/server-saved/deep-desert:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.17
+
+  proces-verbal:
+    <<: *game-server-base
+    command:
+      - *cmd-run
+      - *cmd-farm-region
+      - *cmd-fls-token
+      - *cmd-fls-env
+      - *cmd-server-command-auth-token
+      - *cmd-notification-system
+      - *cmd-server-name
+      - *cmd-server-login-password
+      - *cmd-datacenter
+      - *cmd-db-host
+      - *cmd-db-user
+      - *cmd-db-password
+      - *cmd-rmq-tls
+      - *cmd-external-address
+      - *cmd-rmq-game-host
+      - *cmd-rmq-game-port
+      - *cmd-rmq-admin-host
+      - *cmd-rmq-admin-port
+      - *cmd-multihome
+      - /Game/Dune/Maps/MainStory_Chapter2/ProcesVerbal/ProcesVerbalMap/Story_ProcesVerbal.Story_ProcesVerbal
+      - -Port=7785
+      - -IGWPort=7896
+      - -PartitionIndex=9
+    environment:
+      <<: [*game-server-env, *game-server-preload-env]
+      POD_IP: 172.31.240.18
+      NODE_NAME: dune-node
+      BATTLEGROUP_DISPLAY_NAME: ${WORLD_UNIQUE_NAME}
+      WORLD_NAME: ${WORLD_NAME}
+    ports:
+      - "7785:7785/udp"
+      - "7896:7896/udp"
+    volumes:
+      - .:/workspace:ro
+      - ./data/server-saved/proces-verbal:/home/dune/server/DuneSandbox/Saved
+    networks:
+      default:
+        ipv4_address: 172.31.240.18
+
+  admin-panel:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-db-utils:${DUNE_IMAGE_TAG}
+    restart: unless-stopped
+    mac_address: 02:42:ac:1f:f0:09
+    working_dir: /workspace
+    environment:
+      ADMIN_WORKSPACE: /workspace
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-duneawakeningselfhost}
+      DUNE_ADMIN_DB_HOST: ${DUNE_ADMIN_DB_HOST:-postgres}
+      DUNE_ADMIN_DB_PORT: ${DUNE_ADMIN_DB_PORT:-5432}
+      DUNE_ADMIN_DB_USER: dune
+      DUNE_ADMIN_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      DUNE_GAME_DB_NAME: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      DUNE_DATABASE: ${DUNE_GAME_DB_NAME:-dune_sb_1_4_0_0}
+      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      POSTGRES_DUNE_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_ADMIN_TOKEN: ${DUNE_ADMIN_TOKEN}
+      DUNE_ADMIN_REQUIRE_TOKEN: ${DUNE_ADMIN_REQUIRE_TOKEN:-true}
+      DUNE_ADMIN_RBAC_ENABLED: ${DUNE_ADMIN_RBAC_ENABLED:-false}
+      DUNE_ADMIN_ACCESS_FILE: ${DUNE_ADMIN_ACCESS_FILE:-/workspace/config/admin-access.json}
+      DUNE_ADMIN_DUAL_CONTROL_ENABLED: ${DUNE_ADMIN_DUAL_CONTROL_ENABLED:-false}
+      DUNE_ADMIN_DUAL_CONTROL_POLICY: ${DUNE_ADMIN_DUAL_CONTROL_POLICY:-critical}
+      DUNE_ADMIN_DUAL_CONTROL_TTL_SECONDS: ${DUNE_ADMIN_DUAL_CONTROL_TTL_SECONDS:-900}
+      DUNE_ADMIN_AUDIT_LEDGER_ENABLED: ${DUNE_ADMIN_AUDIT_LEDGER_ENABLED:-true}
+      DUNE_ADMIN_AUDIT_LEDGER_REQUIRED_FOR_MUTATIONS: ${DUNE_ADMIN_AUDIT_LEDGER_REQUIRED_FOR_MUTATIONS:-true}
+      DUNE_ADMIN_CHANGE_CONTRACTS_ENABLED: ${DUNE_ADMIN_CHANGE_CONTRACTS_ENABLED:-true}
+      DUNE_ADMIN_CHANGE_CONTRACTS_REQUIRED: ${DUNE_ADMIN_CHANGE_CONTRACTS_REQUIRED:-true}
+      DUNE_ADMIN_CHANGE_CONTRACT_TTL_SECONDS: ${DUNE_ADMIN_CHANGE_CONTRACT_TTL_SECONDS:-120}
+      DUNE_WEBHOOKS_ENABLED: ${DUNE_WEBHOOKS_ENABLED:-false}
+      DUNE_WEBHOOK_CONFIG: ${DUNE_WEBHOOK_CONFIG:-/workspace/config/outbound-webhooks.json}
+      DUNE_WEBHOOK_TIMEOUT_SECONDS: ${DUNE_WEBHOOK_TIMEOUT_SECONDS:-5}
+      DUNE_WEBHOOK_MAX_ATTEMPTS: ${DUNE_WEBHOOK_MAX_ATTEMPTS:-3}
+      DUNE_WEBHOOK_QUEUE_SIZE: ${DUNE_WEBHOOK_QUEUE_SIZE:-1000}
+      DUNE_WEBHOOK_ALLOW_HTTP: ${DUNE_WEBHOOK_ALLOW_HTTP:-false}
+      DUNE_ADMIN_MUTATIONS_ENABLED: ${DUNE_ADMIN_MUTATIONS_ENABLED:-true}
+      DUNE_ADMIN_ITEM_GRANTS_ENABLED: ${DUNE_ADMIN_ITEM_GRANTS_ENABLED:-true}
+      DUNE_ADMIN_CATALOG_ENABLED: ${DUNE_ADMIN_CATALOG_ENABLED:-true}
+      DUNE_ADMIN_TYPED_KNOBS_ENABLED: ${DUNE_ADMIN_TYPED_KNOBS_ENABLED:-false}
+      DUNE_ADMIN_EVENT_EXECUTION_ENABLED: ${DUNE_ADMIN_EVENT_EXECUTION_ENABLED:-false}
+      DUNE_ADMIN_BUNDLE_MUTATIONS_ENABLED: ${DUNE_ADMIN_BUNDLE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_CARE_PACKAGES_ENABLED: ${DUNE_ADMIN_CARE_PACKAGES_ENABLED:-false}
+      DUNE_ADMIN_CARE_PACKAGES_AUTO_ENABLED: ${DUNE_ADMIN_CARE_PACKAGES_AUTO_ENABLED:-false}
+      DUNE_ADMIN_BLUEPRINT_MUTATIONS_ENABLED: ${DUNE_ADMIN_BLUEPRINT_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_BLUEPRINT_MAX_BODY_BYTES: ${DUNE_ADMIN_BLUEPRINT_MAX_BODY_BYTES:-33554432}
+      DUNE_ADMIN_AUGMENT_MUTATIONS_ENABLED: ${DUNE_ADMIN_AUGMENT_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_DATABASE_QUERY_ENABLED: ${DUNE_ADMIN_DATABASE_QUERY_ENABLED:-false}
+      DUNE_ADMIN_DATABASE_WRITE_ENABLED: ${DUNE_ADMIN_DATABASE_WRITE_ENABLED:-false}
+      DUNE_ADMIN_DATABASE_ROW_MUTATIONS_ENABLED: ${DUNE_ADMIN_DATABASE_ROW_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_DATABASE_PASSWORD_MUTATIONS_ENABLED: ${DUNE_ADMIN_DATABASE_PASSWORD_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_BACKUP_MUTATIONS_ENABLED: ${DUNE_ADMIN_BACKUP_MUTATIONS_ENABLED:-false}
+      DUNE_BACKUP_VERIFY_RETRY_SECONDS: ${DUNE_BACKUP_VERIFY_RETRY_SECONDS:-1}
+      DUNE_OPERATIONS_CALENDAR_HORIZON_DAYS: ${DUNE_OPERATIONS_CALENDAR_HORIZON_DAYS:-14}
+      DUNE_OPERATIONS_CALENDAR_BACKUP_WINDOW_SECONDS: ${DUNE_OPERATIONS_CALENDAR_BACKUP_WINDOW_SECONDS:-1800}
+      DUNE_OPERATIONS_CALENDAR_RESTART_WINDOW_SECONDS: ${DUNE_OPERATIONS_CALENDAR_RESTART_WINDOW_SECONDS:-5400}
+      DUNE_ADMIN_RESTART_OPERATION_RETRY_SECONDS: ${DUNE_ADMIN_RESTART_OPERATION_RETRY_SECONDS:-300}
+      DUNE_ADMIN_BACKUP_RESTORE_ENABLED: ${DUNE_ADMIN_BACKUP_RESTORE_ENABLED:-false}
+      DUNE_RESTORE_DRILL_ENABLED: ${DUNE_RESTORE_DRILL_ENABLED:-true}
+      DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED: ${DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED:-false}
+      DUNE_RESTORE_DRILL_HOST_WORKSPACE: ${DUNE_RESTORE_DRILL_HOST_WORKSPACE:-${DUNE_RESTART_HOST_WORKSPACE:-}}
+      DUNE_RESTORE_DRILL_DOCKER_SOCKET: ${DUNE_RESTORE_DRILL_DOCKER_SOCKET:-/var/run/docker.sock}
+      DUNE_RESTORE_DRILL_IMAGE: ${DUNE_RESTORE_DRILL_IMAGE:-registry.funcom.com/funcom/self-hosting/igw-postgres:17.4-alpine-fc-13}
+      DUNE_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS: ${DUNE_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS:-36}
+      DUNE_RESTORE_DRILL_MAX_RESTORE_SECONDS: ${DUNE_RESTORE_DRILL_MAX_RESTORE_SECONDS:-900}
+      DUNE_RESTORE_DRILL_MEMORY_MIB: ${DUNE_RESTORE_DRILL_MEMORY_MIB:-2048}
+      DUNE_RESTORE_DRILL_PGDATA_MIB: ${DUNE_RESTORE_DRILL_PGDATA_MIB:-1536}
+      DUNE_RESTORE_DRILL_CPUS: ${DUNE_RESTORE_DRILL_CPUS:-2}
+      DUNE_RESTORE_DRILL_PIDS_LIMIT: ${DUNE_RESTORE_DRILL_PIDS_LIMIT:-128}
+      DUNE_RESTORE_DRILL_RECEIPT_RETENTION: ${DUNE_RESTORE_DRILL_RECEIPT_RETENTION:-1000}
+      DUNE_RABBITMQ_RESTORE_DRILL_ENABLED: ${DUNE_RABBITMQ_RESTORE_DRILL_ENABLED:-true}
+      DUNE_ADMIN_RABBITMQ_RESTORE_DRILL_EXECUTION_ENABLED: ${DUNE_ADMIN_RABBITMQ_RESTORE_DRILL_EXECUTION_ENABLED:-false}
+      DUNE_RABBITMQ_RESTORE_DRILL_HOST_WORKSPACE: ${DUNE_RABBITMQ_RESTORE_DRILL_HOST_WORKSPACE:-${DUNE_RESTART_HOST_WORKSPACE:-}}
+      DUNE_RABBITMQ_RESTORE_DRILL_DOCKER_SOCKET: ${DUNE_RABBITMQ_RESTORE_DRILL_DOCKER_SOCKET:-/var/run/docker.sock}
+      DUNE_RABBITMQ_RESTORE_DRILL_IMAGE: ${DUNE_RABBITMQ_RESTORE_DRILL_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-rabbitmq:${DUNE_IMAGE_TAG}}
+      DUNE_RABBITMQ_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS: ${DUNE_RABBITMQ_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS:-36}
+      DUNE_RABBITMQ_RESTORE_DRILL_READINESS_SECONDS: ${DUNE_RABBITMQ_RESTORE_DRILL_READINESS_SECONDS:-180}
+      DUNE_RABBITMQ_RESTORE_DRILL_MEMORY_MIB: ${DUNE_RABBITMQ_RESTORE_DRILL_MEMORY_MIB:-1024}
+      DUNE_RABBITMQ_RESTORE_DRILL_CPUS: ${DUNE_RABBITMQ_RESTORE_DRILL_CPUS:-1}
+      DUNE_RABBITMQ_RESTORE_DRILL_PIDS_LIMIT: ${DUNE_RABBITMQ_RESTORE_DRILL_PIDS_LIMIT:-256}
+      DUNE_RABBITMQ_RESTORE_DRILL_RECEIPT_RETENTION: ${DUNE_RABBITMQ_RESTORE_DRILL_RECEIPT_RETENTION:-1000}
+      DUNE_OPERATIONAL_SLO_ENABLED: ${DUNE_OPERATIONAL_SLO_ENABLED:-true}
+      DUNE_ADMIN_OPERATIONAL_SLO_MUTATIONS_ENABLED: ${DUNE_ADMIN_OPERATIONAL_SLO_MUTATIONS_ENABLED:-false}
+      DUNE_OPERATIONAL_SLO_POLICY: ${DUNE_OPERATIONAL_SLO_POLICY:-/workspace/config/operational-slo.json}
+      DUNE_OPERATIONAL_SLO_DATABASE: ${DUNE_OPERATIONAL_SLO_DATABASE:-/workspace/backups/operational-slo/slo.sqlite3}
+      DUNE_OPERATIONAL_SLO_POLL_SECONDS: ${DUNE_OPERATIONAL_SLO_POLL_SECONDS:-60}
+      DUNE_OPERATIONAL_SLO_STATUS_CACHE_SECONDS: ${DUNE_OPERATIONAL_SLO_STATUS_CACHE_SECONDS:-30}
+      DUNE_OPERATIONAL_SLO_BACKUP_MAX_AGE_HOURS: ${DUNE_OPERATIONAL_SLO_BACKUP_MAX_AGE_HOURS:-36}
+      DUNE_OPERATIONAL_SLO_RESTORE_PROOF_MAX_AGE_HOURS: ${DUNE_OPERATIONAL_SLO_RESTORE_PROOF_MAX_AGE_HOURS:-48}
+      DUNE_OPERATIONAL_SLO_RABBITMQ_RESTORE_PROOF_MAX_AGE_HOURS: ${DUNE_OPERATIONAL_SLO_RABBITMQ_RESTORE_PROOF_MAX_AGE_HOURS:-192}
+      DUNE_OPERATIONAL_SLO_MEMORY_FLOOR_GIB: ${DUNE_OPERATIONAL_SLO_MEMORY_FLOOR_GIB:-8}
+      DUNE_CAPACITY_INTELLIGENCE_ENABLED: ${DUNE_CAPACITY_INTELLIGENCE_ENABLED:-true}
+      DUNE_CAPACITY_INTELLIGENCE_POLICY: ${DUNE_CAPACITY_INTELLIGENCE_POLICY:-/workspace/config/capacity-intelligence.json}
+      DUNE_CAPACITY_INTELLIGENCE_DATABASE: ${DUNE_CAPACITY_INTELLIGENCE_DATABASE:-/workspace/backups/capacity-intelligence/capacity.sqlite3}
+      DUNE_CAPACITY_INTELLIGENCE_POLL_SECONDS: ${DUNE_CAPACITY_INTELLIGENCE_POLL_SECONDS:-30}
+      DUNE_CAPACITY_AUTO_APPLY_ENABLED: ${DUNE_CAPACITY_AUTO_APPLY_ENABLED:-false}
+      DUNE_CAPACITY_AUTO_APPLY_INTERVAL_HOURS: ${DUNE_CAPACITY_AUTO_APPLY_INTERVAL_HOURS:-24}
+      DUNE_MAINTENANCE_PLANNER_ENABLED: ${DUNE_MAINTENANCE_PLANNER_ENABLED:-true}
+      DUNE_MAINTENANCE_PLANNER_POLICY: ${DUNE_MAINTENANCE_PLANNER_POLICY:-/workspace/config/maintenance-planner.json}
+      DUNE_DESIRED_STATE_ENABLED: ${DUNE_DESIRED_STATE_ENABLED:-true}
+      DUNE_ADMIN_DESIRED_STATE_MUTATIONS_ENABLED: ${DUNE_ADMIN_DESIRED_STATE_MUTATIONS_ENABLED:-false}
+      DUNE_DESIRED_STATE_POLICY: ${DUNE_DESIRED_STATE_POLICY:-/workspace/config/desired-state.json}
+      DUNE_DESIRED_STATE_DATABASE: ${DUNE_DESIRED_STATE_DATABASE:-/workspace/backups/desired-state/desired-state.sqlite3}
+      DUNE_DESIRED_STATE_HMAC_SECRET_FILE: ${DUNE_DESIRED_STATE_HMAC_SECRET_FILE:-/workspace/config/secrets/desired-state-hmac.secret}
+      DUNE_DESIRED_STATE_POLL_SECONDS: ${DUNE_DESIRED_STATE_POLL_SECONDS:-60}
+      DUNE_CHANGE_INTELLIGENCE_ENABLED: ${DUNE_CHANGE_INTELLIGENCE_ENABLED:-true}
+      DUNE_CHANGE_INTELLIGENCE_POLICY: ${DUNE_CHANGE_INTELLIGENCE_POLICY:-/workspace/config/change-intelligence.json}
+      DUNE_CHANGE_INTELLIGENCE_DATABASE: ${DUNE_CHANGE_INTELLIGENCE_DATABASE:-/workspace/backups/change-intelligence/change-intelligence.sqlite3}
+      DUNE_CHANGE_INTELLIGENCE_HMAC_SECRET_FILE: ${DUNE_CHANGE_INTELLIGENCE_HMAC_SECRET_FILE:-/workspace/config/secrets/change-intelligence-hmac.secret}
+      DUNE_CHANGE_INTELLIGENCE_EVIDENCE_DIR: ${DUNE_CHANGE_INTELLIGENCE_EVIDENCE_DIR:-/workspace/backups/operator-evidence}
+      DUNE_CHANGE_INTELLIGENCE_STATUS_CACHE_SECONDS: ${DUNE_CHANGE_INTELLIGENCE_STATUS_CACHE_SECONDS:-10}
+      DUNE_CHANGE_INTELLIGENCE_HISTORY_IMPORT_MAX_BYTES: ${DUNE_CHANGE_INTELLIGENCE_HISTORY_IMPORT_MAX_BYTES:-67108864}
+      DUNE_MAINTENANCE_OUTCOME_RETENTION: ${DUNE_MAINTENANCE_OUTCOME_RETENTION:-400}
+      DUNE_CREATOR_CANARY_MAX_AGE_HOURS: ${DUNE_CREATOR_CANARY_MAX_AGE_HOURS:-168}
+      DUNE_CREATOR_CANARY_RETENTION: ${DUNE_CREATOR_CANARY_RETENTION:-200}
+      DUNE_PUBLIC_IP_CANARY_MAX_AGE_HOURS: ${DUNE_PUBLIC_IP_CANARY_MAX_AGE_HOURS:-168}
+      DUNE_PUBLIC_IP_CANARY_RETENTION: ${DUNE_PUBLIC_IP_CANARY_RETENTION:-200}
+      DUNE_PUBLIC_IP_CANARY_HELPER_IMAGE: ${DUNE_PUBLIC_IP_CANARY_HELPER_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}}
+      DUNE_CANARY_AUTOPILOT_ENABLED: ${DUNE_CANARY_AUTOPILOT_ENABLED:-true}
+      DUNE_CANARY_AUTOPILOT_POLL_SECONDS: ${DUNE_CANARY_AUTOPILOT_POLL_SECONDS:-300}
+      DUNE_CANARY_AUTOPILOT_REFRESH_BEFORE_HOURS: ${DUNE_CANARY_AUTOPILOT_REFRESH_BEFORE_HOURS:-24}
+      DUNE_CANARY_AUTOPILOT_FAILURE_BACKOFF_SECONDS: ${DUNE_CANARY_AUTOPILOT_FAILURE_BACKOFF_SECONDS:-900}
+      DUNE_CANARY_AUTOPILOT_MAX_BACKOFF_SECONDS: ${DUNE_CANARY_AUTOPILOT_MAX_BACKOFF_SECONDS:-86400}
+      DUNE_CANARY_AUTOPILOT_RETENTION: ${DUNE_CANARY_AUTOPILOT_RETENTION:-200}
+      DUNE_CANARY_AUTOPILOT_STATE_FILE: ${DUNE_CANARY_AUTOPILOT_STATE_FILE:-/workspace/backups/admin-panel/canary-autopilot.json}
+      DUNE_OPERATIONS_BRIEFING_ENABLED: ${DUNE_OPERATIONS_BRIEFING_ENABLED:-true}
+      DUNE_OPERATIONS_BRIEFING_POLL_SECONDS: ${DUNE_OPERATIONS_BRIEFING_POLL_SECONDS:-300}
+      DUNE_OPERATIONS_BRIEFING_REFRESH_HOURS: ${DUNE_OPERATIONS_BRIEFING_REFRESH_HOURS:-24}
+      DUNE_OPERATIONS_BRIEFING_MAX_AGE_HOURS: ${DUNE_OPERATIONS_BRIEFING_MAX_AGE_HOURS:-36}
+      DUNE_OPERATIONS_BRIEFING_MIN_INTERVAL_SECONDS: ${DUNE_OPERATIONS_BRIEFING_MIN_INTERVAL_SECONDS:-300}
+      DUNE_OPERATIONS_BRIEFING_CHANGE_MIN_INTERVAL_SECONDS: ${DUNE_OPERATIONS_BRIEFING_CHANGE_MIN_INTERVAL_SECONDS:-15}
+      DUNE_OPERATIONS_BRIEFING_EVENT_DEBOUNCE_SECONDS: ${DUNE_OPERATIONS_BRIEFING_EVENT_DEBOUNCE_SECONDS:-5}
+      DUNE_OPERATIONS_BRIEFING_RETENTION: ${DUNE_OPERATIONS_BRIEFING_RETENTION:-100}
+      DUNE_ALERT_INBOX_ENABLED: ${DUNE_ALERT_INBOX_ENABLED:-true}
+      DUNE_ADMIN_ALERT_INBOX_MUTATIONS_ENABLED: ${DUNE_ADMIN_ALERT_INBOX_MUTATIONS_ENABLED:-true}
+      DUNE_ALERT_INBOX_DATABASE: ${DUNE_ALERT_INBOX_DATABASE:-/workspace/backups/alert-inbox/inbox.sqlite3}
+      DUNE_ALERT_INBOX_PROMETHEUS_URL: ${DUNE_ALERT_INBOX_PROMETHEUS_URL:-http://prometheus:9090}
+      DUNE_ALERT_INBOX_POLL_SECONDS: ${DUNE_ALERT_INBOX_POLL_SECONDS:-30}
+      DUNE_ALERT_INBOX_TIMEOUT_SECONDS: ${DUNE_ALERT_INBOX_TIMEOUT_SECONDS:-5}
+      DUNE_ALERT_INBOX_RETENTION_DAYS: ${DUNE_ALERT_INBOX_RETENTION_DAYS:-90}
+      DUNE_ALERT_INBOX_HISTORY_LIMIT: ${DUNE_ALERT_INBOX_HISTORY_LIMIT:-2000}
+      DUNE_PEER_WATCH_ENABLED: ${DUNE_PEER_WATCH_ENABLED:-true}
+      DUNE_PEER_WATCH_DATABASE: ${DUNE_PEER_WATCH_DATABASE:-/workspace/backups/peer-watch/watch.sqlite3}
+      DUNE_PEER_WATCH_CATALOG: ${DUNE_PEER_WATCH_CATALOG:-/source-workspace/docs/ecosystem-feature-parity-audit.md}
+      DUNE_PEER_WATCH_GITHUB_TOKEN_FILE: ${DUNE_PEER_WATCH_GITHUB_TOKEN_FILE:-}
+      DUNE_PEER_WATCH_POLL_SECONDS: ${DUNE_PEER_WATCH_POLL_SECONDS:-21600}
+      DUNE_PEER_WATCH_TIMEOUT_SECONDS: ${DUNE_PEER_WATCH_TIMEOUT_SECONDS:-15}
+      DUNE_PEER_WATCH_HISTORY_LIMIT: ${DUNE_PEER_WATCH_HISTORY_LIMIT:-5000}
+      DUNE_RESPONSE_DRILLS_ENABLED: ${DUNE_RESPONSE_DRILLS_ENABLED:-true}
+      DUNE_DEPLOYMENT_ASSURANCE_ENABLED: ${DUNE_DEPLOYMENT_ASSURANCE_ENABLED:-true}
+      DUNE_FEATURE_READINESS_CACHE_TTL_SECONDS: ${DUNE_FEATURE_READINESS_CACHE_TTL_SECONDS:-30}
+      DUNE_FEATURE_READINESS_HISTORY_ENABLED: ${DUNE_FEATURE_READINESS_HISTORY_ENABLED:-true}
+      DUNE_FEATURE_READINESS_HISTORY_DATABASE: ${DUNE_FEATURE_READINESS_HISTORY_DATABASE:-/workspace/backups/feature-readiness/history.sqlite3}
+      DUNE_FEATURE_READINESS_HISTORY_HMAC_SECRET_FILE: ${DUNE_FEATURE_READINESS_HISTORY_HMAC_SECRET_FILE:-/workspace/config/secrets/feature-readiness-history-hmac.secret}
+      DUNE_CREDENTIAL_LIFECYCLE_ENABLED: ${DUNE_CREDENTIAL_LIFECYCLE_ENABLED:-true}
+      DUNE_CREDENTIAL_LIFECYCLE_DATABASE: ${DUNE_CREDENTIAL_LIFECYCLE_DATABASE:-/workspace/backups/credential-lifecycle/history.sqlite3}
+      DUNE_CREDENTIAL_LIFECYCLE_HMAC_SECRET_FILE: ${DUNE_CREDENTIAL_LIFECYCLE_HMAC_SECRET_FILE:-/workspace/config/secrets/credential-lifecycle-hmac.secret}
+      DUNE_CREDENTIAL_LIFECYCLE_ANCHOR_FILE: ${DUNE_CREDENTIAL_LIFECYCLE_ANCHOR_FILE:-/workspace/backups/credential-lifecycle/history.anchor.json}
+      DUNE_DEPLOYMENT_ASSURANCE_STATE_DIR: ${DUNE_DEPLOYMENT_ASSURANCE_STATE_DIR:-/workspace/backups/deployment-assurance}
+      DUNE_DEPLOYMENT_ASSURANCE_WORKSPACE: ${DUNE_DEPLOYMENT_ASSURANCE_WORKSPACE:-/source-workspace}
+      DUNE_DEPLOYMENT_ASSURANCE_PROMETHEUS_URL: ${DUNE_DEPLOYMENT_ASSURANCE_PROMETHEUS_URL:-http://prometheus:9090}
+      DUNE_UPDATE_READINESS_ENABLED: ${DUNE_UPDATE_READINESS_ENABLED:-true}
+      DUNE_UPDATE_REQUIRE_READINESS_RECEIPT: ${DUNE_UPDATE_REQUIRE_READINESS_RECEIPT:-true}
+      DUNE_UPDATE_READINESS_TTL_SECONDS: ${DUNE_UPDATE_READINESS_TTL_SECONDS:-3600}
+      DUNE_UPDATE_READINESS_POLL_SECONDS: ${DUNE_UPDATE_READINESS_POLL_SECONDS:-300}
+      DUNE_UPDATE_READINESS_STEAM_DIR: /steam-server
+      DUNE_UPDATE_READINESS_REQUIRED_HOST: ${DUNE_UPDATE_READINESS_REQUIRED_HOST:-kspls0}
+      DUNE_IMAGE_TAG: ${DUNE_IMAGE_TAG}
+      DUNE_ADMIN_MEMORY_MUTATIONS_ENABLED: ${DUNE_ADMIN_MEMORY_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_AUTOSCALER_MUTATIONS_ENABLED: ${DUNE_ADMIN_AUTOSCALER_MUTATIONS_ENABLED:-false}
+      DUNE_AUTOSCALER_ENABLED: ${DUNE_AUTOSCALER_ENABLED:-false}
+      DUNE_AUTOSCALER_PROFILE: ${DUNE_AUTOSCALER_PROFILE:-balanced}
+      DUNE_AUTOSCALER_DEFAULT_MODE: ${DUNE_AUTOSCALER_DEFAULT_MODE:-always-on}
+      DUNE_AUTOSCALER_ALWAYS_ON_SERVICES: ${DUNE_AUTOSCALER_ALWAYS_ON_SERVICES:-survival,overmap}
+      DUNE_AUTOSCALER_SIMULATION_REQUIRED_SERVICES: ${DUNE_AUTOSCALER_SIMULATION_REQUIRED_SERVICES:-survival}
+      DUNE_AUTOSCALER_IDLE_SECONDS: ${DUNE_AUTOSCALER_IDLE_SECONDS:-300}
+      DUNE_AUTOSCALER_DEMAND_TTL_SECONDS: ${DUNE_AUTOSCALER_DEMAND_TTL_SECONDS:-900}
+      DUNE_AUTOSCALER_POLL_SECONDS: ${DUNE_AUTOSCALER_POLL_SECONDS:-3}
+      DUNE_AUTOSCALER_RECONCILE_SECONDS: ${DUNE_AUTOSCALER_RECONCILE_SECONDS:-30}
+      DUNE_AUTOSCALER_FAST_START: ${DUNE_AUTOSCALER_FAST_START:-true}
+      DUNE_AUTOSCALER_BALANCED_RETENTION_SECONDS: ${DUNE_AUTOSCALER_BALANCED_RETENTION_SECONDS:-900}
+      DUNE_AUTOSCALER_BALANCED_RETENTION_BY_SERVICE: ${DUNE_AUTOSCALER_BALANCED_RETENTION_BY_SERVICE:-arrakeen=2700,harko-village=2700,deep-desert=1800}
+      DUNE_AUTOSCALER_BALANCED_MAX_WARM_MAPS: ${DUNE_AUTOSCALER_BALANCED_MAX_WARM_MAPS:-4}
+      DUNE_AUTOSCALER_BALANCED_MIN_AVAILABLE_MEMORY_GIB: ${DUNE_AUTOSCALER_BALANCED_MIN_AVAILABLE_MEMORY_GIB:-16}
+      DUNE_DISCORD_ADAPTER_ENABLED: ${DUNE_DISCORD_ADAPTER_ENABLED:-false}
+      DUNE_COMMUNITY_REWARDS_ENABLED: ${DUNE_COMMUNITY_REWARDS_ENABLED:-false}
+      DUNE_COMMUNITY_DELIVERY_ENABLED: ${DUNE_COMMUNITY_DELIVERY_ENABLED:-false}
+      DUNE_COMMUNITY_REWARDS_DATABASE: ${DUNE_COMMUNITY_REWARDS_DATABASE:-/workspace/backups/community-rewards/community.sqlite3}
+      DUNE_COMMUNITY_POLL_SECONDS: ${DUNE_COMMUNITY_POLL_SECONDS:-30}
+      DUNE_COMMUNITY_CANARY_MAX_AGE_HOURS: ${DUNE_COMMUNITY_CANARY_MAX_AGE_HOURS:-168}
+      DUNE_COMMUNITY_CANARY_RETENTION: ${DUNE_COMMUNITY_CANARY_RETENTION:-200}
+      DUNE_COMMUNITY_VOTE_WEBHOOK_SECRET_FILE: ${DUNE_COMMUNITY_VOTE_WEBHOOK_SECRET_FILE:-/workspace/config/secrets/community-vote-webhook.secret}
+      DUNE_COMMUNITY_PAYMENT_WEBHOOK_SECRET_FILE: ${DUNE_COMMUNITY_PAYMENT_WEBHOOK_SECRET_FILE:-/workspace/config/secrets/community-payment-webhook.secret}
+      DUNE_MODERATION_ENABLED: ${DUNE_MODERATION_ENABLED:-true}
+      DUNE_MODERATION_ENFORCEMENT_ENABLED: ${DUNE_MODERATION_ENFORCEMENT_ENABLED:-true}
+      DUNE_MODERATION_DATABASE: ${DUNE_MODERATION_DATABASE:-/workspace/backups/moderation/moderation.sqlite3}
+      DUNE_MODERATION_POLL_SECONDS: ${DUNE_MODERATION_POLL_SECONDS:-15}
+      DUNE_MODERATION_RETENTION_DAYS: ${DUNE_MODERATION_RETENTION_DAYS:-90}
+      DUNE_MODERATION_HEATMAP_CELL_SIZE: ${DUNE_MODERATION_HEATMAP_CELL_SIZE:-25000}
+      DUNE_MODERATION_KICK_COOLDOWN_SECONDS: ${DUNE_MODERATION_KICK_COOLDOWN_SECONDS:-60}
+      DUNE_MODERATION_LOG_SERVICES: ${DUNE_MODERATION_LOG_SERVICES:-survival,director,gateway,game-rmq}
+      DUNE_BASE_CREATOR_ENABLED: ${DUNE_BASE_CREATOR_ENABLED:-true}
+      DUNE_BASE_GALLERY_DATABASE: ${DUNE_BASE_GALLERY_DATABASE:-/workspace/backups/base-gallery/gallery.sqlite3}
+      DUNE_ADMIN_BASE_RETIREMENT_MUTATIONS_ENABLED: ${DUNE_ADMIN_BASE_RETIREMENT_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_BASE_RECOVERY_REMINDER_MUTATIONS_ENABLED: ${DUNE_ADMIN_BASE_RECOVERY_REMINDER_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_VEHICLE_RETIREMENT_MUTATIONS_ENABLED: ${DUNE_ADMIN_VEHICLE_RETIREMENT_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_VEHICLE_RECOVERY_REMINDER_MUTATIONS_ENABLED: ${DUNE_ADMIN_VEHICLE_RECOVERY_REMINDER_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_BASE_COOLDOWN_MUTATIONS_ENABLED: ${DUNE_ADMIN_BASE_COOLDOWN_MUTATIONS_ENABLED:-false}
+      DUNE_PLAYER_PRESENCE_BASE_RECOVERY_REMINDERS_FILE: ${DUNE_PLAYER_PRESENCE_BASE_RECOVERY_REMINDERS_FILE:-backups/admin-bot/base-recovery-reminders.json}
+      DUNE_PLAYER_PRESENCE_VEHICLE_RECOVERY_REMINDERS_FILE: ${DUNE_PLAYER_PRESENCE_VEHICLE_RECOVERY_REMINDERS_FILE:-backups/admin-bot/vehicle-recovery-reminders.json}
+      DUNE_GAMEPLAY_PRESETS_ENABLED: ${DUNE_GAMEPLAY_PRESETS_ENABLED:-true}
+      DUNE_GAMEPLAY_PRESET_MUTATIONS_ENABLED: ${DUNE_GAMEPLAY_PRESET_MUTATIONS_ENABLED:-false}
+      DUNE_COMMAND_CONSOLE_ENABLED: ${DUNE_COMMAND_CONSOLE_ENABLED:-true}
+      DUNE_ADMIN_COSMETIC_MUTATIONS_ENABLED: ${DUNE_ADMIN_COSMETIC_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_FEDERATED_AUTH_ENABLED: ${DUNE_ADMIN_FEDERATED_AUTH_ENABLED:-false}
+      DUNE_ADMIN_AUTH_PROVIDER: ${DUNE_ADMIN_AUTH_PROVIDER:-}
+      DUNE_ADMIN_AUTH_ISSUER: ${DUNE_ADMIN_AUTH_ISSUER:-}
+      DUNE_ADMIN_AUTH_CLIENT_ID: ${DUNE_ADMIN_AUTH_CLIENT_ID:-}
+      DUNE_ADMIN_AUTH_CLIENT_SECRET_FILE: ${DUNE_ADMIN_AUTH_CLIENT_SECRET_FILE:-/workspace/config/secrets/admin-oauth-client.secret}
+      DUNE_ADMIN_AUTH_REDIRECT_URI: ${DUNE_ADMIN_AUTH_REDIRECT_URI:-}
+      DUNE_ADMIN_AUTH_SCOPES: ${DUNE_ADMIN_AUTH_SCOPES:-}
+      DUNE_ADMIN_AUTH_ALLOWED_ORIGINS: ${DUNE_ADMIN_AUTH_ALLOWED_ORIGINS:-}
+      DUNE_ADMIN_AUTH_SUBJECTS_FILE: ${DUNE_ADMIN_AUTH_SUBJECTS_FILE:-/workspace/config/admin-auth-subjects.json}
+      DUNE_ADMIN_AUTH_SESSION_SECRET_FILE: ${DUNE_ADMIN_AUTH_SESSION_SECRET_FILE:-/workspace/config/secrets/admin-session.secret}
+      DUNE_ADMIN_AUTH_SESSION_SECONDS: ${DUNE_ADMIN_AUTH_SESSION_SECONDS:-28800}
+      DUNE_ADMIN_AUTH_COOKIE_SECURE: ${DUNE_ADMIN_AUTH_COOKIE_SECURE:-true}
+      DUNE_BACKUP_ARCHIVE_ENCRYPTION_ENABLED: ${DUNE_BACKUP_ARCHIVE_ENCRYPTION_ENABLED:-false}
+      DUNE_BACKUP_GPG_RECIPIENT: ${DUNE_BACKUP_GPG_RECIPIENT:-}
+      DUNE_BACKUP_GPG_HOME: ${DUNE_BACKUP_GPG_HOME:-}
+      DUNE_BACKUP_GPG_REQUIRE_VERIFY: ${DUNE_BACKUP_GPG_REQUIRE_VERIFY:-true}
+      DUNE_HOST_UID: ${DUNE_HOST_UID:-1000}
+      DUNE_HOST_GID: ${DUNE_HOST_GID:-1000}
+      DUNE_ADMIN_ADDON_MUTATIONS_ENABLED: ${DUNE_ADMIN_ADDON_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_PLAYER_RUNTIME_MUTATIONS_ENABLED: ${DUNE_ADMIN_PLAYER_RUNTIME_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_PLAYER_LIFE_RECOVERY_ENABLED: ${DUNE_ADMIN_PLAYER_LIFE_RECOVERY_ENABLED:-false}
+      DUNE_ADMIN_OFFLINE_TELEPORT_ENABLED: ${DUNE_ADMIN_OFFLINE_TELEPORT_ENABLED:-false}
+      DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED: ${DUNE_ADMIN_CHARACTER_BACKUPS_ENABLED:-false}
+      DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED: ${DUNE_ADMIN_VEHICLE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED: ${DUNE_ADMIN_BOOTSTRAP_MUTATIONS_ENABLED:-false}
+      DUNE_BOT_API_TOKEN: ${DUNE_BOT_API_TOKEN:-}
+      DUNE_BOT_API_TOKEN_FILE: ${DUNE_BOT_API_TOKEN_FILE:-}
+      DISCORD_OBSERVER_ROLE_IDS: ${DISCORD_OBSERVER_ROLE_IDS:-}
+      DISCORD_MODERATOR_ROLE_IDS: ${DISCORD_MODERATOR_ROLE_IDS:-}
+      DISCORD_ADMIN_ROLE_IDS: ${DISCORD_ADMIN_ROLE_IDS:-}
+      DISCORD_OWNER_ROLE_IDS: ${DISCORD_OWNER_ROLE_IDS:-}
+      DUNE_ADMIN_BACKUP_IMPORT_MAX_BODY_BYTES: ${DUNE_ADMIN_BACKUP_IMPORT_MAX_BODY_BYTES:-134217728}
+      DUNE_ADMIN_SERVICE_CONTROL_ENABLED: ${DUNE_ADMIN_SERVICE_CONTROL_ENABLED:-false}
+      DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED: ${DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED:-false}
+      DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED: ${DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED: ${DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED: ${DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_FACTION_MUTATIONS_ENABLED: ${DUNE_ADMIN_FACTION_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_LANDSRAAD_MUTATIONS_ENABLED: ${DUNE_ADMIN_LANDSRAAD_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_RESPAWN_MUTATIONS_ENABLED: ${DUNE_ADMIN_RESPAWN_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_GUILD_MUTATIONS_ENABLED: ${DUNE_ADMIN_GUILD_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_MARKER_MUTATIONS_ENABLED: ${DUNE_ADMIN_MARKER_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_LANDCLAIM_MUTATIONS_ENABLED: ${DUNE_ADMIN_LANDCLAIM_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_EXCHANGE_MUTATIONS_ENABLED: ${DUNE_ADMIN_EXCHANGE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_PLAYER_TAG_MUTATIONS_ENABLED: ${DUNE_ADMIN_PLAYER_TAG_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_ACCESS_CODE_MUTATIONS_ENABLED: ${DUNE_ADMIN_ACCESS_CODE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_COMMUNINET_MUTATIONS_ENABLED: ${DUNE_ADMIN_COMMUNINET_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_TUTORIAL_MUTATIONS_ENABLED: ${DUNE_ADMIN_TUTORIAL_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_PERMISSION_MUTATIONS_ENABLED: ${DUNE_ADMIN_PERMISSION_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_VENDOR_MUTATIONS_ENABLED: ${DUNE_ADMIN_VENDOR_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_CHARACTER_SWAP_ENABLED: ${DUNE_ADMIN_CHARACTER_SWAP_ENABLED:-false}
+      DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED: ${DUNE_ADMIN_PLAYER_IDENTITY_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_CHARACTER_DELETE_ENABLED: ${DUNE_ADMIN_CHARACTER_DELETE_ENABLED:-false}
+      DUNE_ADMIN_GM_COMMANDS_ENABLED: ${DUNE_ADMIN_GM_COMMANDS_ENABLED:-false}
+      DUNE_SERVER_COMMANDS_AUTH_TOKEN: ${DUNE_SERVER_COMMANDS_AUTH_TOKEN:-}
+      DUNE_METRICS_RETENTION_TIME: ${DUNE_METRICS_RETENTION_TIME:-7d}
+      DUNE_METRICS_RETENTION_SIZE: ${DUNE_METRICS_RETENTION_SIZE:-2GB}
+      DUNE_ADMIN_METRICS_CACHE_SECONDS: ${DUNE_ADMIN_METRICS_CACHE_SECONDS:-60}
+      DUNE_AUTOSCALER_MAINTENANCE_MARKER: ${DUNE_AUTOSCALER_MAINTENANCE_MARKER:-/workspace/backups/admin-panel/autoscaler-maintenance.lock}
+      DUNE_ADMIN_MAX_BODY_BYTES: ${DUNE_ADMIN_MAX_BODY_BYTES:-65536}
+      DUNE_ADMIN_AUDIT_MAX_BYTES: ${DUNE_ADMIN_AUDIT_MAX_BYTES:-5242880}
+      DUNE_ADMIN_REQUEST_TIMEOUT_SECONDS: ${DUNE_ADMIN_REQUEST_TIMEOUT_SECONDS:-10}
+      DUNE_ADMIN_MAX_ITEM_STACK_SIZE: ${DUNE_ADMIN_MAX_ITEM_STACK_SIZE:-1000000}
+      DUNE_ADMIN_AUDIT_EVENT_LIMIT: ${DUNE_ADMIN_AUDIT_EVENT_LIMIT:-100}
+      DUNE_ADMIN_REFERENCE_LIMIT: ${DUNE_ADMIN_REFERENCE_LIMIT:-200}
+      DUNE_ADMIN_CHARACTER_SEARCH_LIMIT: ${DUNE_ADMIN_CHARACTER_SEARCH_LIMIT:-100}
+      DUNE_ADMIN_STEAM_PROFILE_CACHE_TTL_SECONDS: ${DUNE_ADMIN_STEAM_PROFILE_CACHE_TTL_SECONDS:-86400}
+      DUNE_ADMIN_STEAM_PROFILE_LOOKUP_ENABLED: ${DUNE_ADMIN_STEAM_PROFILE_LOOKUP_ENABLED:-true}
+      DUNE_ADMIN_ALLOWED_HOSTS: ${DUNE_ADMIN_ALLOWED_HOSTS:-127.0.0.1:18080,localhost:18080,admin.example.test,admin-panel:8080}
+      DUNE_HAGGA_MAP_MIN_X: ${DUNE_HAGGA_MAP_MIN_X:--457200}
+      DUNE_HAGGA_MAP_MAX_X: ${DUNE_HAGGA_MAP_MAX_X:-355600}
+      DUNE_HAGGA_MAP_MIN_Y: ${DUNE_HAGGA_MAP_MIN_Y:--457200}
+      DUNE_HAGGA_MAP_MAX_Y: ${DUNE_HAGGA_MAP_MAX_Y:-355600}
+      DUNE_HAGGA_MAP_INVERT_X: ${DUNE_HAGGA_MAP_INVERT_X:-false}
+      DUNE_HAGGA_MAP_INVERT_Y: ${DUNE_HAGGA_MAP_INVERT_Y:-false}
+      DUNE_HAGGA_MAP_IMAGE_MIN_U: ${DUNE_HAGGA_MAP_IMAGE_MIN_U:-0}
+      DUNE_HAGGA_MAP_IMAGE_MAX_U: ${DUNE_HAGGA_MAP_IMAGE_MAX_U:-1}
+      DUNE_HAGGA_MAP_IMAGE_MIN_V: ${DUNE_HAGGA_MAP_IMAGE_MIN_V:-0}
+      DUNE_HAGGA_MAP_IMAGE_MAX_V: ${DUNE_HAGGA_MAP_IMAGE_MAX_V:-1}
+      DUNE_HAGGA_MAP_SHOW_RETURN_POINTS: ${DUNE_HAGGA_MAP_SHOW_RETURN_POINTS:-false}
+      DUNE_ADMIN_ANNOUNCE_COMMAND: ${DUNE_ADMIN_ANNOUNCE_COMMAND:-/workspace/scripts/announce.sh}
+      DUNE_ADMIN_ANNOUNCEMENT_MAX_MESSAGE_BYTES: ${DUNE_ADMIN_ANNOUNCEMENT_MAX_MESSAGE_BYTES:-500}
+      DUNE_ADMIN_ANNOUNCEMENT_COMMAND_TIMEOUT_SECONDS: ${DUNE_ADMIN_ANNOUNCEMENT_COMMAND_TIMEOUT_SECONDS:-45}
+      DUNE_ANNOUNCE_GAME_RMQ_MANAGEMENT_URL: ${DUNE_ANNOUNCE_GAME_RMQ_MANAGEMENT_URL:-http://game-rmq:15672}
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_HOST: ${DUNE_ANNOUNCE_GAME_RMQ_AMQP_HOST:-172.31.240.1}
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_PORT: ${DUNE_ANNOUNCE_GAME_RMQ_AMQP_PORT:-31982}
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_TLS: ${DUNE_ANNOUNCE_GAME_RMQ_AMQP_TLS:-true}
+      DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
+      DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
+      DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
+      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
+      DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
+      DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
+      DUNE_ANNOUNCE_CHAT_ROUTING_KEYS: ${DUNE_ANNOUNCE_CHAT_ROUTING_KEYS:-HaggaBasin.0,Survival_1.dim_0,<empty>}
+      DUNE_ANNOUNCE_HOST_WORKSPACE: ${DUNE_ANNOUNCE_HOST_WORKSPACE:-}
+      DUNE_ANNOUNCE_HOST_AMQP_HOST: ${DUNE_ANNOUNCE_HOST_AMQP_HOST:-172.31.240.1}
+      DUNE_ANNOUNCE_HOST_AMQP_PORT: ${DUNE_ANNOUNCE_HOST_AMQP_PORT:-31982}
+      DUNE_ANNOUNCE_CHAT_CHANNEL: ${DUNE_ANNOUNCE_CHAT_CHANNEL:-Map}
+      DUNE_ANNOUNCE_CHAT_USE_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_USE_SPOOF_NAME:-true}
+      DUNE_ANNOUNCE_CHAT_BIND_ONLINE_QUEUES: ${DUNE_ANNOUNCE_CHAT_BIND_ONLINE_QUEUES:-true}
+      DUNE_ANNOUNCE_CHAT_ENSURE_ACCOUNT: ${DUNE_ANNOUNCE_CHAT_ENSURE_ACCOUNT:-false}
+      DUNE_ANNOUNCE_CHAT_PLATFORM_ID: ${DUNE_ANNOUNCE_CHAT_PLATFORM_ID:-PAUL}
+      DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
+      DUNE_ANNOUNCE_RMQ_URL: ${DUNE_ANNOUNCE_RMQ_URL:-http://admin-rmq:15672}
+      DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
+      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_ANNOUNCE_RMQ_EXCHANGE: ${DUNE_ANNOUNCE_RMQ_EXCHANGE:-rpc}
+      DUNE_ANNOUNCE_RMQ_ROUTING_KEYS: ${DUNE_ANNOUNCE_RMQ_ROUTING_KEYS:-Survival_11}
+      DUNE_ANNOUNCE_RMQ_REPLY_TO: ${DUNE_ANNOUNCE_RMQ_REPLY_TO:-bgdRpc}
+      DUNE_ANNOUNCE_RMQ_CORRELATION_ID: ${DUNE_ANNOUNCE_RMQ_CORRELATION_ID:-}
+      DUNE_ANNOUNCE_RMQ_TYPE: ${DUNE_ANNOUNCE_RMQ_TYPE:-json_rpc}
+      DUNE_ANNOUNCE_RMQ_APP_ID: ${DUNE_ANNOUNCE_RMQ_APP_ID:-}
+      DUNE_ANNOUNCE_RMQ_USER_ID: ${DUNE_ANNOUNCE_RMQ_USER_ID:-}
+      DUNE_ANNOUNCE_COMMAND_NAME: ${DUNE_ANNOUNCE_COMMAND_NAME:-ServiceBroadcast}
+      DUNE_ANNOUNCE_TITLE: ${DUNE_ANNOUNCE_TITLE:-Maintenance}
+      DUNE_ANNOUNCE_DURATION_SECONDS: ${DUNE_ANNOUNCE_DURATION_SECONDS:-12}
+      DUNE_ANNOUNCE_PAYLOAD_MODE: ${DUNE_ANNOUNCE_PAYLOAD_MODE:-jsonrpc-notify-array}
+      DUNE_ANNOUNCE_PAYLOAD_TEMPLATE: ${DUNE_ANNOUNCE_PAYLOAD_TEMPLATE:-}
+      DUNE_ADMIN_RESTART_COMMAND: ${DUNE_ADMIN_RESTART_COMMAND:-/workspace/scripts/restart-target.sh}
+      DUNE_ADMIN_RESTART_COMMAND_TIMEOUT_SECONDS: ${DUNE_ADMIN_RESTART_COMMAND_TIMEOUT_SECONDS:-1800}
+      DUNE_ADMIN_RESTART_DISCONNECT_WAIT_SECONDS: ${DUNE_ADMIN_RESTART_DISCONNECT_WAIT_SECONDS:-5}
+      COMPOSE_FILES: ${COMPOSE_FILES:-}
+      DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
+      DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/var/run/docker.sock}
+      DUNE_RESTART_HOST_WORKSPACE: ${DUNE_RESTART_HOST_WORKSPACE:-${DUNE_ANNOUNCE_HOST_WORKSPACE:-}}
+      DUNE_RESTART_COMPOSE_IMAGE: ${DUNE_RESTART_COMPOSE_IMAGE:-docker:27.5.1-cli}
+      DUNE_RESTART_USE_HOST_COMPOSE: ${DUNE_RESTART_USE_HOST_COMPOSE:-true}
+      DUNE_RESTART_COMPOSE_TIMEOUT_SECONDS: ${DUNE_RESTART_COMPOSE_TIMEOUT_SECONDS:-1800}
+      DUNE_RESTART_DOCKER_STOP_TIMEOUT_SECONDS: ${DUNE_RESTART_DOCKER_STOP_TIMEOUT_SECONDS:-120}
+      DUNE_RESTART_DOCKER_API_TIMEOUT_SECONDS: ${DUNE_RESTART_DOCKER_API_TIMEOUT_SECONDS:-30}
+      DUNE_RESTART_CHECK_STEAM_UPDATE: ${DUNE_RESTART_CHECK_STEAM_UPDATE:-true}
+      DUNE_REBOOT_AFTER_STEAM_UPDATE: ${DUNE_REBOOT_AFTER_STEAM_UPDATE:-false}
+      DUNE_UPDATE_REBOOT_HOST: ${DUNE_UPDATE_REBOOT_HOST:-kspls0}
+      DUNE_RESTART_STEAM_UPDATE_MODE: ${DUNE_RESTART_STEAM_UPDATE_MODE:-auto}
+      DUNE_RESTART_STEAM_CLIENT_TRIGGER: ${DUNE_RESTART_STEAM_CLIENT_TRIGGER:-true}
+      DUNE_RESTART_STEAM_CLIENT_WAIT_SECONDS: ${DUNE_RESTART_STEAM_CLIENT_WAIT_SECONDS:-900}
+      DUNE_RESTART_STEAM_CLIENT_MIN_WAIT_SECONDS: ${DUNE_RESTART_STEAM_CLIENT_MIN_WAIT_SECONDS:-30}
+      DUNE_STEAM_CLIENT_COMMAND: ${DUNE_STEAM_CLIENT_COMMAND:-steam}
+      DUNE_RESTART_STEAMCMD_UPDATE: ${DUNE_RESTART_STEAMCMD_UPDATE:-true}
+      DUNE_RESTART_STEAMCMD_REQUIRED: ${DUNE_RESTART_STEAMCMD_REQUIRED:-false}
+      DUNE_RESTART_STEAMCMD_HELPER_IMAGE: ${DUNE_RESTART_STEAMCMD_HELPER_IMAGE:-cm2network/steamcmd:root}
+      DUNE_STEAM_APP_ID: ${DUNE_STEAM_APP_ID:-4754530}
+      DUNE_STEAM_LOGIN: ${DUNE_STEAM_LOGIN:-anonymous}
+      DUNE_STEAM_PASSWORD: ${DUNE_STEAM_PASSWORD:-}
+      DUNE_STEAMCMD_COMMAND: ${DUNE_STEAMCMD_COMMAND:-steamcmd}
+      DUNE_STEAMCMD_VALIDATE: ${DUNE_STEAMCMD_VALIDATE:-true}
+      DUNE_STEAMCMD_TIMEOUT_SECONDS: ${DUNE_STEAMCMD_TIMEOUT_SECONDS:-1800}
+      DUNE_CHAT_COMMAND_PREFIX: ${DUNE_CHAT_COMMAND_PREFIX:-&}
+      DUNE_CHAT_COMMAND_ADMINS: ${DUNE_CHAT_COMMAND_ADMINS:-AdminUser}
+      DUNE_CHAT_COMMAND_ADMIN_FLS_IDS: ${DUNE_CHAT_COMMAND_ADMIN_FLS_IDS:-TEST_FLS_ID}
+      DUNE_CHAT_COMMAND_DRY_RUN: ${DUNE_CHAT_COMMAND_DRY_RUN:-true}
+      DUNE_CHAT_COMMAND_EXECUTE_TELEPORT: ${DUNE_CHAT_COMMAND_EXECUTE_TELEPORT:-false}
+      DUNE_CHAT_COMMAND_EXECUTE_ONLINE_GM_TELEPORT: ${DUNE_CHAT_COMMAND_EXECUTE_ONLINE_GM_TELEPORT:-false}
+      DUNE_CHAT_COMMAND_EXECUTE_PLAYER_DISCONNECT: ${DUNE_CHAT_COMMAND_EXECUTE_PLAYER_DISCONNECT:-false}
+      DUNE_PLAYER_DISCONNECT_COMMAND: ${DUNE_PLAYER_DISCONNECT_COMMAND:-RemoveSessionMember}
+      DUNE_PLAYER_DISCONNECT_ALLOW_BATTLEYE: ${DUNE_PLAYER_DISCONNECT_ALLOW_BATTLEYE:-false}
+      DUNE_GM_COMMAND_PAYLOAD_VERIFIED: ${DUNE_GM_COMMAND_PAYLOAD_VERIFIED:-false}
+      DUNE_GM_COMMAND_ENVELOPE_MODE: ${DUNE_GM_COMMAND_ENVELOPE_MODE:-service-message}
+      DUNE_GM_COMMAND_TRANSPORT: ${DUNE_GM_COMMAND_TRANSPORT:-amqp}
+      DUNE_GM_COMMAND_EXCHANGE: ${DUNE_GM_COMMAND_EXCHANGE:-rpc}
+      DUNE_GM_COMMAND_REPLY_TO: ${DUNE_GM_COMMAND_REPLY_TO:-bgdRpc}
+      DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-admin-rmq}
+      DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5672}
+      DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://admin-rmq:15672}
+      DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
+      DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
+      DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
+      DUNE_CHAT_COMMAND_ROUTING_KEY: ${DUNE_CHAT_COMMAND_ROUTING_KEY:-ADMIN#00001}
+      DUNE_CHAT_COMMAND_BIND_ROUTING_KEYS: ${DUNE_CHAT_COMMAND_BIND_ROUTING_KEYS:-ADMIN#00001}
+      DUNE_CHAT_COMMAND_AMQP_HOST: ${DUNE_CHAT_COMMAND_AMQP_HOST:-game-rmq}
+      DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-5672}
+      DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
+      DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
+      DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
+    command:
+      - /workspace/admin/admin_panel.py
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/tmp
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    pids_limit: 256
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./admin:/workspace/admin:ro
+      - .:/source-workspace:ro
+      - ${DUNE_STEAM_SERVER_DIR}:/steam-server:ro
+      - ./scripts:/workspace/scripts:ro
+      - ./config:/workspace/config
+      - ./.env:/workspace/.env
+      - ./backups:/workspace/backups
+      - ./data:/workspace/data:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      default:
+        ipv4_address: 172.31.240.9
+        aliases:
+          - admin-panel
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nreq=urllib.request.Request('http://127.0.0.1:8080/healthz', headers={'Host':'admin-panel:8080'})\nurllib.request.urlopen(req, timeout=3).read()\nPY"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  admin-panel-ingress:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mac_address: 02:42:ac:1f:f0:08
+    depends_on:
+      admin-panel:
+        condition: service_healthy
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    read_only: true
+    tmpfs:
+      - /config
+      - /data
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    ports:
+      - "${DUNE_ADMIN_BIND_ADDRESS:-127.0.0.1}:${DUNE_ADMIN_HOST_PORT:-18080}:8080"
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./config/admin-ingress.Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      default:
+        ipv4_address: 172.31.240.8
+        aliases:
+          - admin-panel-ingress
+
+  admin-chat-commands:
+    image: registry.funcom.com/funcom/self-hosting/seabass-server-db-utils:${DUNE_IMAGE_TAG}
+    restart: unless-stopped
+    network_mode: host
+    working_dir: /workspace
+    environment:
+      DUNE_ADMIN_DB_HOST: ${DUNE_ADMIN_DB_HOST:-127.0.0.1}
+      DUNE_ADMIN_DB_PORT: ${DUNE_ADMIN_DB_PORT:-15431}
+      DUNE_ADMIN_DB_USER: dune
+      DUNE_ADMIN_DB_PASSWORD: ${POSTGRES_DUNE_PASSWORD}
+      DUNE_CHAT_COMMAND_PREFIX: ${DUNE_CHAT_COMMAND_PREFIX:-&}
+      DUNE_CHAT_COMMAND_ADMINS: ${DUNE_CHAT_COMMAND_ADMINS:-AdminUser}
+      DUNE_CHAT_COMMAND_ADMIN_FLS_IDS: ${DUNE_CHAT_COMMAND_ADMIN_FLS_IDS:-TEST_FLS_ID}
+      DUNE_CHAT_COMMAND_DRY_RUN: ${DUNE_CHAT_COMMAND_DRY_RUN:-true}
+      DUNE_CHAT_COMMAND_EXECUTE_TELEPORT: ${DUNE_CHAT_COMMAND_EXECUTE_TELEPORT:-false}
+      DUNE_CHAT_COMMAND_ADMIN_PORT: ${DUNE_CHAT_COMMAND_ADMIN_PORT:-${DUNE_ADMIN_HOST_PORT:-18080}}
+      DUNE_CHAT_COMMAND_ADMIN_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_ADMIN_TIMEOUT_SECONDS:-180}
+      DUNE_ADMIN_GM_COMMANDS_ENABLED: ${DUNE_ADMIN_GM_COMMANDS_ENABLED:-false}
+      DUNE_CHAT_COMMAND_EXECUTE_ONLINE_GM_TELEPORT: ${DUNE_CHAT_COMMAND_EXECUTE_ONLINE_GM_TELEPORT:-false}
+      DUNE_CHAT_COMMAND_EXECUTE_PLAYER_DISCONNECT: ${DUNE_CHAT_COMMAND_EXECUTE_PLAYER_DISCONNECT:-false}
+      DUNE_PLAYER_DISCONNECT_COMMAND: ${DUNE_PLAYER_DISCONNECT_COMMAND:-RemoveSessionMember}
+      DUNE_PLAYER_DISCONNECT_ALLOW_BATTLEYE: ${DUNE_PLAYER_DISCONNECT_ALLOW_BATTLEYE:-false}
+      DUNE_GM_COMMAND_PAYLOAD_VERIFIED: ${DUNE_GM_COMMAND_PAYLOAD_VERIFIED:-false}
+      DUNE_GM_COMMAND_ENVELOPE_MODE: ${DUNE_GM_COMMAND_ENVELOPE_MODE:-service-message}
+      DUNE_GM_COMMAND_TRANSPORT: ${DUNE_GM_COMMAND_TRANSPORT:-amqp}
+      DUNE_GM_COMMAND_EXCHANGE: ${DUNE_GM_COMMAND_EXCHANGE:-rpc}
+      DUNE_GM_COMMAND_REPLY_TO: ${DUNE_GM_COMMAND_REPLY_TO:-bgdRpc}
+      DUNE_GM_COMMAND_AMQP_HOST: ${DUNE_GM_COMMAND_AMQP_HOST:-127.0.0.1}
+      DUNE_GM_COMMAND_AMQP_PORT: ${DUNE_GM_COMMAND_AMQP_PORT:-5673}
+      DUNE_GM_COMMAND_AMQP_USER: ${DUNE_GM_COMMAND_AMQP_USER:-guest}
+      DUNE_GM_COMMAND_AMQP_PASSWORD: ${DUNE_GM_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_GM_COMMAND_RMQ_URL: ${DUNE_GM_COMMAND_RMQ_URL:-http://127.0.0.1:15672}
+      DUNE_GM_COMMAND_RMQ_USER: ${DUNE_GM_COMMAND_RMQ_USER:-guest}
+      DUNE_GM_COMMAND_RMQ_PASSWORD: ${DUNE_GM_COMMAND_RMQ_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_EXCHANGE: ${DUNE_CHAT_COMMAND_EXCHANGE:-sh-6ff6498f4074e3de-ksplsz_chat.whispers}
+      DUNE_CHAT_COMMAND_EXCHANGES: ${DUNE_CHAT_COMMAND_EXCHANGES:-sh-6ff6498f4074e3de-ksplsz_chat.whispers,chat.whispers}
+      DUNE_CHAT_COMMAND_QUEUE: ${DUNE_CHAT_COMMAND_QUEUE:-dash_admin_chat_commands}
+      DUNE_CHAT_COMMAND_ROUTING_KEY: ${DUNE_CHAT_COMMAND_ROUTING_KEY:-ADMIN#00001}
+      DUNE_CHAT_COMMAND_BIND_ROUTING_KEYS: ${DUNE_CHAT_COMMAND_BIND_ROUTING_KEYS:-ADMIN#00001}
+      DUNE_CHAT_COMMAND_AMQP_HOST: ${DUNE_CHAT_COMMAND_AMQP_HOST:-127.0.0.1}
+      DUNE_CHAT_COMMAND_AMQP_PORT: ${DUNE_CHAT_COMMAND_AMQP_PORT:-31982}
+      DUNE_CHAT_COMMAND_AMQP_TLS: ${DUNE_CHAT_COMMAND_AMQP_TLS:-true}
+      DUNE_CHAT_COMMAND_AMQP_USER: ${DUNE_CHAT_COMMAND_AMQP_USER:-guest}
+      DUNE_CHAT_COMMAND_AMQP_PASSWORD: ${DUNE_CHAT_COMMAND_AMQP_PASSWORD:-guest}
+      DUNE_CHAT_COMMAND_REPLY_COMMAND: ${DUNE_CHAT_COMMAND_REPLY_COMMAND:-/workspace/scripts/announce.sh}
+      DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS: ${DUNE_CHAT_COMMAND_REPLY_TIMEOUT_SECONDS:-10}
+      DUNE_CHAT_COMMAND_TARGET_REPLY_MODE: ${DUNE_CHAT_COMMAND_TARGET_REPLY_MODE:-whisper}
+      DUNE_CHAT_COMMAND_PRIVATE_REPLY_EXCHANGE: ${DUNE_CHAT_COMMAND_PRIVATE_REPLY_EXCHANGE:-chat.whispers}
+      DUNE_CHAT_COMMAND_PRIVATE_REPLY_CHANNEL: ${DUNE_CHAT_COMMAND_PRIVATE_REPLY_CHANNEL:-Whispers}
+      DUNE_CHAT_COMMAND_PRIVATE_REPLY_ROUTING_KEY: ${DUNE_CHAT_COMMAND_PRIVATE_REPLY_ROUTING_KEY:-}
+      DUNE_CHAT_SPAM_PROTECT_ENABLED: ${DUNE_CHAT_SPAM_PROTECT_ENABLED:-true}
+      DUNE_CHAT_SPAM_PROTECT_EXEMPT_ADMINS: ${DUNE_CHAT_SPAM_PROTECT_EXEMPT_ADMINS:-true}
+      DUNE_CHAT_SPAM_SAME_CONSECUTIVE_LIMIT: ${DUNE_CHAT_SPAM_SAME_CONSECUTIVE_LIMIT:-3}
+      DUNE_CHAT_SPAM_SAME_WINDOW_LIMIT: ${DUNE_CHAT_SPAM_SAME_WINDOW_LIMIT:-5}
+      DUNE_CHAT_SPAM_SAME_WINDOW_SECONDS: ${DUNE_CHAT_SPAM_SAME_WINDOW_SECONDS:-30}
+      DUNE_CHAT_SPAM_KICK_COOLDOWN_SECONDS: ${DUNE_CHAT_SPAM_KICK_COOLDOWN_SECONDS:-300}
+      DUNE_CHAT_SPAM_MIN_MESSAGE_LENGTH: ${DUNE_CHAT_SPAM_MIN_MESSAGE_LENGTH:-1}
+      DUNE_CHAT_SPAM_ANNOUNCE_ACTION: ${DUNE_CHAT_SPAM_ANNOUNCE_ACTION:-true}
+      DUNE_CHAT_SPAM_KICK_COMMAND: ${DUNE_CHAT_SPAM_KICK_COMMAND:-/workspace/scripts/spam-kick-player.sh --player {character_name} --fls-id {fls_id} --reason {reason} --message {message}}
+      DUNE_CHAT_SPAM_KICK_TIMEOUT_SECONDS: ${DUNE_CHAT_SPAM_KICK_TIMEOUT_SECONDS:-10}
+      DUNE_CHAT_SPAM_EXEMPT_NAMES: ${DUNE_CHAT_SPAM_EXEMPT_NAMES:-}
+      DUNE_CHAT_SPAM_EXEMPT_FLS_IDS: ${DUNE_CHAT_SPAM_EXEMPT_FLS_IDS:-}
+      DUNE_SPAM_KICK_BACKEND: ${DUNE_SPAM_KICK_BACKEND:-blocked}
+      DUNE_SPAM_KICK_BACKEND_COMMAND: ${DUNE_SPAM_KICK_BACKEND_COMMAND:-}
+      DUNE_ANNOUNCE_GAME_RMQ_MANAGEMENT_URL: http://127.0.0.1:15673
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_HOST: 127.0.0.1
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_PORT: 31982
+      DUNE_ANNOUNCE_GAME_RMQ_AMQP_TLS: "true"
+      DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS: ${DUNE_ANNOUNCE_HTTP_TIMEOUT_SECONDS:-0.5}
+      DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH: ${DUNE_ANNOUNCE_ALLOW_MANAGEMENT_PUBLISH:-false}
+      DUNE_ANNOUNCE_CHAT_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
+      DUNE_ANNOUNCE_CHAT_PASSWORD: ${DUNE_ANNOUNCE_CHAT_PASSWORD:-dash-admin-test}
+      DUNE_ANNOUNCE_CHAT_FUNCOM_ID: ${DUNE_ANNOUNCE_CHAT_FUNCOM_ID:-ADMIN#00001}
+      DUNE_ANNOUNCE_CHAT_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_SPOOF_NAME:-Paul}
+      DUNE_ANNOUNCE_CHAT_EXCHANGE: ${DUNE_ANNOUNCE_CHAT_EXCHANGE:-chat.map}
+      DUNE_ANNOUNCE_CHAT_ROUTING_KEYS: ${DUNE_ANNOUNCE_CHAT_ROUTING_KEYS:-HaggaBasin.0,Survival_1.dim_0,<empty>}
+      DUNE_ANNOUNCE_HOST_WORKSPACE: ${DUNE_ANNOUNCE_HOST_WORKSPACE:-}
+      DUNE_ANNOUNCE_HOST_AMQP_HOST: ${DUNE_ANNOUNCE_HOST_AMQP_HOST:-172.31.240.1}
+      DUNE_ANNOUNCE_HOST_AMQP_PORT: ${DUNE_ANNOUNCE_HOST_AMQP_PORT:-31982}
+      DUNE_ANNOUNCE_CHAT_CHANNEL: ${DUNE_ANNOUNCE_CHAT_CHANNEL:-Map}
+      DUNE_ANNOUNCE_CHAT_USE_SPOOF_NAME: ${DUNE_ANNOUNCE_CHAT_USE_SPOOF_NAME:-true}
+      DUNE_ANNOUNCE_CHAT_BIND_ONLINE_QUEUES: ${DUNE_ANNOUNCE_CHAT_BIND_ONLINE_QUEUES:-true}
+      DUNE_ANNOUNCE_CHAT_ENSURE_ACCOUNT: ${DUNE_ANNOUNCE_CHAT_ENSURE_ACCOUNT:-false}
+      DUNE_ANNOUNCE_CHAT_PLATFORM_ID: ${DUNE_ANNOUNCE_CHAT_PLATFORM_ID:-PAUL}
+      DUNE_ANNOUNCE_CHAT_PLATFORM_NAME: ${DUNE_ANNOUNCE_CHAT_PLATFORM_NAME:-Paul}
+      DUNE_ANNOUNCE_RMQ_URL: http://127.0.0.1:15672
+      DUNE_ANNOUNCE_RMQ_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
+      DUNE_ANNOUNCE_RMQ_PASSWORD: ${DUNE_ANNOUNCE_RMQ_PASSWORD:-guest}
+      DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
+      DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/var/run/docker.sock}
+    command:
+      - /workspace/scripts/admin-chat-commands.py
+    healthcheck:
+      test: ["CMD", "/workspace/scripts/admin-chat-commands.py", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    depends_on:
+      admin-panel:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      game-rmq:
+        condition: service_healthy
+    volumes:
+      - *rg-bin-volume
+      - *busybox-bin-volume
+      - *jq-bin-volume
+      - *curl-bin-volume
+      - ./scripts:/workspace/scripts:ro
+      - ./.env:/workspace/.env:ro
+      - ./backups:/workspace/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  default:
+    driver_opts:
+      com.docker.network.bridge.name: ${DUNE_DOCKER_BRIDGE_NAME:-dune-br0}
+    ipam:
+      config:
+        - subnet: 172.31.240.0/24
+          ip_range: 172.31.240.128/25
+          gateway: 172.31.240.1

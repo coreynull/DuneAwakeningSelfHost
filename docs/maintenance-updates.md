@@ -17,6 +17,38 @@ operator certifies and applies the candidate in Infrastructure. The legacy
 fully automatic behavior requires the explicit
 `DUNE_HOTFIX_AUTO_APPLY_WITHOUT_READINESS=true` opt-out.
 
+The hotfix service is bounded to 90 minutes per run. Its timer waits 15 minutes
+after the service exits before polling again, so a slow or failed update does
+not cause overlapping work or an immediate retry when a long run finishes.
+
+## Independent Health Alerts
+
+`dune-health-monitor.timer` runs every 10 minutes from a calendar schedule. It
+checks the installed Steam build against the last loaded build, the Docker
+daemon, required game partitions, FLS server-browser publication, failed
+update / watchdog / safety-audit services, and whether the updater, public-IP
+monitor, safety-audit, and health timers have a next run. The hotfix updater,
+public-IP monitor, target safety audit, and map watchdog trigger an immediate check
+when systemd records a failure.
+
+Findings are emailed through the host's shared
+`/usr/local/lib/snape-mail-submit.sh` helper and
+`/etc/snape/identity-alerts.env`. The monitor sends one message per distinct
+finding set and a recovery message after they clear. Its state is stored under
+`/var/lib/dune-health-monitor`; it does not depend on DASH's alert inbox or
+Prometheus scraping. Those provide local visibility, but they do not deliver
+mail by themselves, and a Prometheus comparison against a missing metric does
+not fire.
+
+Install or refresh the monitor and its failure hooks with:
+
+```bash
+./scripts/install-dune-health-monitor.sh
+```
+
+The public-IP monitor also uses `OnUnitInactiveSec` so its oneshot timer
+schedules the next run after each check completes.
+
 Daily maintenance uses the same trust boundary. The default `certified` policy
 checks readiness before warning players and revalidates the exact staged
 candidate immediately before any disconnect or stop. When no update is staged,
@@ -137,6 +169,14 @@ The timer is persistent. If the host is down at 05:30, systemd runs the
 scheduler after boot; it targets the next safe 06:00 local window instead of
 creating an immediate late restart.
 
+Before it creates the daily job, the scheduler takes the hotfix updater lock,
+refreshes the Steam server package, and checks the installed, target, and
+image-loaded build IDs against the package tag. If a newer package is staged
+but the readiness receipt is unavailable or failing, it leaves the existing
+farm untouched and does not queue a current-build restart. All-farm starts
+repeat the build and running-image check after Compose starts; a stale or
+unverifiable build makes the start phase fail with the check output attached.
+
 To enable a host reboot only when maintenance actually installs a newer Steam
 build, first install the boot-time resume service on `kspls0`:
 
@@ -204,6 +244,11 @@ update, restores the current build, verifies readiness, and reports the job as
 failed even when service recovery succeeds. For an intentional shutdown, the
 target remains offline. Every execution produces a signed stage-by-stage
 outcome; see [`maintenance-intelligence.md`](maintenance-intelligence.md).
+
+For all-farm jobs using the `current` policy, preflight now refuses to stop the
+farm unless the downloaded Steam package, loaded build ID, and configured
+image tag agree. The `certified` policy remains the path for applying a staged
+new build after its backup and readiness gates pass.
 
 ## Restart Batching
 
@@ -385,7 +430,10 @@ is deliberately narrower than the game's DB-wipe flag:
 - resource fields are deleted only from `dune.resourcefield_state` where
   `map='DeepDesert'` and `dimension_index=1`;
 - spice field current counters are reset only through
-  `dune.reset_global_spice_field_state('DeepDesert', 1)`;
+  `dune.reset_global_spice_field_state('DeepDesert', 1)` when the current
+  database schema exposes that optional table/function; otherwise the cleanup
+  records that spice-field reset is unavailable and continues with the
+  partition/resource cleanup;
 - marker and surveyed-area cleanup are not called because the official
   map-level cleanup only scopes those tables by map name.
 
@@ -490,6 +538,25 @@ Expected output includes `DRY RUN: would patch 3 target(s)` and the three target
 names. If the dry-run cannot find exactly those sites after a Funcom binary
 update, leave `DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED=false` until the Ghidra
 signatures are refreshed.
+
+### Supported Building Piece Multiplier
+
+For current server builds, use
+`DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED=true`,
+`DUNE_BUILDING_PIECE_LIMIT_MODE=server-settings`, and
+`DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER=2.000000`. The startup wrapper writes
+`BuildingPieceLimitMultiplier` to both
+`Saved/Config/LinuxServer/ServerCustomSettings.ini` and
+`Saved/UserSettings/ServerCustomSettings.ini`. Every worker service must receive
+the three settings through its Compose environment.
+
+On 2026-11-01, production's shared environment had the correct values, but its
+base `compose.yaml` lacked those environment pass-throughs. The current source
+Compose files already included them. The production Compose copy was synced,
+then the five affected active base maps were recreated with
+`scripts/start-map-with-post-hooks.sh`; all six active maps, including the
+already-correct PvP map, were verified at multiplier `2.000000` on Steam build
+`26324834`.
 
 Prepared-for-downtime production file backup:
 
@@ -741,3 +808,21 @@ Only use this path when overwriting later `.env` changes is acceptable. The
 safer default is to set `DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED=false`,
 `DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED=false`, and remove obsolete patch overlays
 from `COMPOSE_FILES` if present.
+# Recovery and router SSH requirements
+
+The production maintenance and restart path runs on `kspls0`. Map startup
+reconciles the configured game and IGW UDP ranges with the AsusWRT router before
+starting workers. That reconciliation must run with the operator's router SSH
+identity: the map watchdog, hotfix updater, and reboot-resume units run as
+`keith`, and the privileged transient restart helper mounts
+`DUNE_RESTART_HOST_SSH_DIR` read-only for the network-capacity check. The
+watchdog and hotfix updater keep their `flock` files in systemd-managed state
+directories so stale root-owned `/tmp` locks cannot prevent recovery after a
+service-user change. Do not run these lifecycle units as root without an
+equivalent router SSH identity;
+router forwarding failures must be reported with their underlying SSH error
+and must not be mistaken for a game-server startup failure.
+
+After maintenance, verify the active database partitions and FLS publication
+with `scripts/status.sh .env --public-summary`, and verify the runtime patches
+with the relevant post-start health hooks before declaring the farm recovered.

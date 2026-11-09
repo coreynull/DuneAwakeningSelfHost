@@ -20,6 +20,8 @@ main() {
 
   install_workspace_tools "$dry_run"
   install_cert
+  install_user_configs "$server_root"
+  install_runtime_secrets "$server_root" "$dry_run"
   install_building_piece_limit_patch "$server_root" "$dry_run"
   install_landsraad_vendor_faction_gate_patch "$server_root" "$dry_run"
   install_brt_dd_buildable_map_region_pak_patch "$server_root" "$dry_run"
@@ -28,7 +30,6 @@ main() {
   install_brt_dd_action_gate_binary_patch "$server_root" "$dry_run"
   install_brt_dd_narrow_tool_state_binary_patch "$server_root" "$dry_run"
   install_brt_dd_tool_enable_binary_patch "$server_root" "$dry_run"
-  install_user_configs "$server_root"
   sync_default_game_from_usergame "$server_root"
   install_runtime_secrets "$server_root" "$dry_run"
   load_workspace_value DUNE_SERVER_DISPLAY_NAME
@@ -224,7 +225,6 @@ main() {
   if [ -n "${DUNE_SERVER_STARTUP_EXECCMDS:-}" ]; then
     args+=("-ExecCmds=${DUNE_SERVER_STARTUP_EXECCMDS}")
   fi
-
   prepare_linux_server_preload "${args[@]}"
 
   if [ "$dry_run" = "true" ]; then
@@ -656,6 +656,7 @@ install_user_configs() {
   local source_dir=/workspace/config
   local user_game_config="${DUNE_USERGAME_CONFIG_PATH:-${source_dir}/UserGame.ini}"
   local user_engine_config="${DUNE_USERENGINE_CONFIG_PATH:-${source_dir}/UserEngine.ini}"
+  local server_custom_settings_config="${DUNE_SERVER_CUSTOM_SETTINGS_PATH:-${source_dir}/UserServerCustomSettings.ini}"
   local config_dir="$server_root/DuneSandbox/Saved/Config/LinuxServer"
   local user_settings_dir="$server_root/DuneSandbox/Saved/UserSettings"
   mkdir -p "$config_dir"
@@ -665,6 +666,8 @@ install_user_configs() {
   copy_user_config "$user_engine_config" "${user_settings_dir}/UserEngine.ini"
   copy_user_config "$user_game_config" "${config_dir}/Game.ini"
   copy_user_config "$user_game_config" "${user_settings_dir}/UserGame.ini"
+  copy_user_config "$server_custom_settings_config" "${config_dir}/ServerCustomSettings.ini"
+  copy_user_config "$server_custom_settings_config" "${user_settings_dir}/ServerCustomSettings.ini"
 }
 
 copy_user_config() {
@@ -672,6 +675,20 @@ copy_user_config() {
   local target="$2"
   [ -f "$source" ] || return 0
   cp "$source" "$target"
+}
+
+install_runtime_secrets() {
+  local server_root="$1" dry_run="$2"
+  local installer="${workspace_root}/scripts/game-runtime-secrets.py"
+  [ -f "$installer" ] || {
+    printf 'runtime secret installer is missing: %s\n' "$installer" >&2
+    return 1
+  }
+  if [ "$dry_run" = "true" ]; then
+    printf 'runtime secret installer available: %s\n' "$installer"
+    return 0
+  fi
+  python3 "$installer" install-config --server-root "$server_root"
 }
 
 sync_default_game_from_usergame() {
@@ -872,9 +889,73 @@ install_cert() {
   fi
 }
 
+install_building_piece_limit_server_setting() {
+  local server_root="$1"
+  local dry_run="$2"
+  local enabled="${DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED:-false}"
+  local multiplier="${DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER:-}"
+
+  # Keep the old flag useful for operators upgrading from the cooked-pak
+  # implementation. It now selects the supported server setting unless the
+  # legacy pak mode is explicitly requested below.
+  if [ "$enabled" != "true" ] && [ "${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}" = "true" ]; then
+    enabled=true
+  fi
+  [ "$enabled" = "true" ] || return 0
+
+  if [ -z "$multiplier" ]; then
+    local limit="${DUNE_BUILDING_PIECE_LIMIT:-10000}"
+    if ! [[ "$limit" =~ ^[0-9]+$ ]] || [ "$limit" -le 0 ]; then
+      echo "invalid DUNE_BUILDING_PIECE_LIMIT: $limit" >&2
+      return 1
+    fi
+    multiplier="$(awk -v limit="$limit" 'BEGIN { printf "%.6f", limit / 5000 }')"
+  fi
+
+  if ! [[ "$multiplier" =~ ^([0-9]+([.][0-9]+)?|[.][0-9]+)$ ]]; then
+    echo "invalid DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER: $multiplier" >&2
+    return 1
+  fi
+  if ! awk -v multiplier="$multiplier" 'BEGIN { exit !(multiplier > 0) }'; then
+    echo "DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER must be greater than zero: $multiplier" >&2
+    return 1
+  fi
+  multiplier="$(awk -v multiplier="$multiplier" 'BEGIN { printf "%.6f", multiplier + 0 }')"
+  export DUNE_EFFECTIVE_BUILDING_PIECE_LIMIT_MULTIPLIER="$multiplier"
+
+  local config_target="$server_root/DuneSandbox/Saved/Config/LinuxServer/ServerCustomSettings.ini"
+  local user_target="$server_root/DuneSandbox/Saved/UserSettings/ServerCustomSettings.ini"
+  local assignment="BuildingPieceLimitMultiplier=$multiplier"
+  if [ "$dry_run" = "true" ]; then
+    echo "would set supported server custom setting: $user_target [$assignment]"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$config_target")" "$(dirname "$user_target")"
+  for target in "$config_target" "$user_target"; do
+    if [ ! -f "$target" ]; then
+      printf '[/Script/DuneSandbox.UserServerCustomSettings]\n' > "$target"
+    fi
+    replace_or_append_ini_assignment "$target" BuildingPieceLimitMultiplier "$assignment"
+  done
+  echo "set supported server custom setting: $user_target [$assignment]"
+}
+
 install_building_piece_limit_patch() {
   local server_root="$1"
   local dry_run="$2"
+  local mode="${DUNE_BUILDING_PIECE_LIMIT_MODE:-server-settings}"
+
+  if [ "$mode" = "server-settings" ]; then
+    install_building_piece_limit_server_setting "$server_root" "$dry_run"
+    return $?
+  fi
+  if [ "$mode" != "pak" ]; then
+    echo "invalid DUNE_BUILDING_PIECE_LIMIT_MODE: $mode" >&2
+    echo "expected 'server-settings' or 'pak'" >&2
+    return 1
+  fi
+
   [ "${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}" = "true" ] || return 0
 
   local limit="${DUNE_BUILDING_PIECE_LIMIT:-10000}"

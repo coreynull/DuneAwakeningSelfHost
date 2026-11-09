@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
+server_saved_tar_options=(--exclude=Logs)
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
@@ -347,7 +348,25 @@ printf 'writing backup: %s\n' "$backup_dir"
 
 env_base="$(basename "$env_file")"
 cp "$env_file" "${backup_dir}/${env_base}"
-tar --exclude='config/tls' --exclude='config/tls/**' -czf "${backup_dir}/config.tgz" config
+config_tar_options=(--exclude='config/tls' --exclude='config/tls/**')
+if [[ -L config/secrets ]]; then
+  # Secret sources are deliberately kept outside the workspace, but a full
+  # recovery backup must carry the HMAC keys needed to verify its signed state.
+  # Validate the protected links and refuse to dereference any other config
+  # symlink so the archive cannot unexpectedly walk outside the project.
+  "$script_dir/protect-compose-secrets.sh" "$repo_root" >/dev/null
+  config_symlinks="$(find config -type l -print)"
+  if [[ "$config_symlinks" != "config/secrets" ]]; then
+    printf 'refusing to dereference unexpected config symlink(s): %s\n' "$config_symlinks" >&2
+    exit 1
+  fi
+  config_tar_options+=(--dereference)
+elif [[ ! -d config/secrets ]]; then
+  printf 'config secrets directory is unavailable: config/secrets\n' >&2
+  exit 1
+fi
+tar "${config_tar_options[@]}" -czf "${backup_dir}/config.tgz" config
+chmod 0600 "${backup_dir}/config.tgz"
 if [[ -d config/tls ]]; then
   tar -czf "${backup_dir}/config-tls.tgz" config/tls
 fi
@@ -359,6 +378,7 @@ import sys
 
 source = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 target = sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0] != "ok":
@@ -377,6 +397,7 @@ import sys
 
 source = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 target = sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0] != "ok":
@@ -394,6 +415,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("base gallery snapshot failed integrity_check")
@@ -409,6 +431,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("operational SLO snapshot failed integrity_check")
@@ -424,6 +447,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("capacity intelligence snapshot failed integrity_check")
@@ -439,6 +463,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("desired-state snapshot failed integrity_check")
@@ -454,6 +479,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("change-intelligence snapshot failed integrity_check")
@@ -469,6 +495,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("feature-readiness history snapshot failed integrity_check")
@@ -484,6 +511,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("alert inbox snapshot failed integrity_check")
@@ -499,6 +527,7 @@ import sqlite3
 import sys
 source=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True)
 target=sqlite3.connect(sys.argv[2])
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("peer-watch snapshot failed integrity_check")
@@ -538,6 +567,7 @@ for attempt in range(5):
     target_db.unlink(missing_ok=True)
     source=sqlite3.connect(f"file:{source_db}?mode=ro",uri=True)
     target=sqlite3.connect(target_db)
+    target.execute("pragma mmap_size=1073741824")
     try:
         source.backup(target)
         if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise RuntimeError("credential lifecycle snapshot failed integrity_check")
@@ -564,6 +594,7 @@ import sys
 source_db, source_key, target_db, target_key = map(pathlib.Path, sys.argv[1:])
 source=sqlite3.connect(f"file:{source_db}?mode=ro",uri=True)
 target=sqlite3.connect(target_db)
+target.execute("pragma mmap_size=1073741824")
 try:
     source.backup(target)
     if target.execute("pragma integrity_check").fetchone()[0]!="ok": raise SystemExit("change approval snapshot failed integrity_check")
@@ -580,30 +611,7 @@ if [[ "$audit_ledger_artifacts" -eq 3 ]]; then
 fi
 
 if [[ "$operator_evidence_count" -gt 0 ]]; then
-  python3 - "$operator_evidence_dir" "${backup_dir}/operator-evidence.tgz" <<'PY'
-import pathlib
-import re
-import tarfile
-import sys
-
-source = pathlib.Path(sys.argv[1])
-target = pathlib.Path(sys.argv[2])
-files = sorted(path for path in source.glob("*.signed.json") if path.is_file() and not path.is_symlink())
-if not 1 <= len(files) <= 1000:
-    raise SystemExit("operator evidence backup requires 1..1000 regular signed capsules")
-total = 0
-with tarfile.open(target, "w:gz") as archive:
-    for path in files:
-        if not re.fullmatch(r"[A-Za-z0-9_.-]+\.signed\.json", path.name):
-            raise SystemExit(f"operator evidence capsule has unsafe backup name: {path.name}")
-        size = path.stat().st_size
-        if not 1 <= size <= 10 * 1024 * 1024:
-            raise SystemExit(f"operator evidence capsule has invalid size: {path}")
-        total += size
-        if total > 100 * 1024 * 1024:
-            raise SystemExit("operator evidence capsules exceed the 100 MiB backup bound")
-        archive.add(path, arcname=f"operator-evidence/{path.name}", recursive=False)
-PY
+  python3 scripts/snapshot_operator_evidence.py "$operator_evidence_dir" "${backup_dir}/operator-evidence.tgz"
   chmod 600 "${backup_dir}/operator-evidence.tgz"
 fi
 
@@ -626,10 +634,10 @@ if "${compose[@]}" ps --services --filter status=running | grep -qx game-rmq; th
 fi
 
 if "${compose[@]}" ps --services --filter status=running | grep -qx survival; then
-  "${compose[@]}" exec -T survival tar -czf - -C /home/dune/server/DuneSandbox/Saved . \
+  "${compose[@]}" exec -T survival tar "${server_saved_tar_options[@]}" -czf - -C /home/dune/server/DuneSandbox/Saved . \
     > "${backup_dir}/server-saved.tgz"
 elif [[ -d data/server-saved ]]; then
-  tar -czf "${backup_dir}/server-saved.tgz" data/server-saved
+  tar "${server_saved_tar_options[@]}" -czf "${backup_dir}/server-saved.tgz" data/server-saved
 fi
 
 cat > "${backup_dir}/manifest.txt" <<EOF
@@ -643,6 +651,7 @@ postgres_dump=postgres-${db}.dump
 rabbitmq_admin_archive=rabbitmq-admin.tgz
 rabbitmq_game_archive=rabbitmq-game.tgz
 server_saved_archive=server-saved.tgz
+server_saved_excludes=Logs
 config_archive=config.tgz
 config_tls_archive=config-tls.tgz
 community_rewards_snapshot=${community_snapshot}

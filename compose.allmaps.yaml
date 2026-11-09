@@ -32,20 +32,20 @@ x-game-server-env: &game-server-env
   DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS: ${DUNE_FORCE_PRIVATE_IGW_BIND_ADDRESS:-false}
   DUNE_IGW_BIND_ADDRESS: ${DUNE_IGW_BIND_ADDRESS:-}
   DUNE_DISABLE_MULTIHOME: ${DUNE_DISABLE_MULTIHOME:-false}
+  DUNE_SERVER_CUSTOM_SETTINGS_PATH: ${DUNE_SERVER_CUSTOM_SETTINGS_PATH:-/workspace/config/UserServerCustomSettings.ini}
+  DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED:-false}
+  DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER: ${DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER:-}
+  DUNE_BUILDING_PIECE_LIMIT_MODE: ${DUNE_BUILDING_PIECE_LIMIT_MODE:-server-settings}
   DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}
   DUNE_BUILDING_PIECE_LIMIT: ${DUNE_BUILDING_PIECE_LIMIT:-10000}
   DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED: ${DUNE_LANDSRAAD_VENDOR_FACTION_GATE_PATCH_ENABLED:-false}
   DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED: ${DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED:-false}
   DUNE_SUBFIEF_CAP_BINARY_TARGET: ${DUNE_SUBFIEF_CAP_BINARY_TARGET:-subfief}
   DUNE_SUBFIEF_CAP: ${DUNE_SUBFIEF_CAP:-6}
-  DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED:-false}
-  DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED:-false}
-  DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_ENABLED: ${DUNE_BRT_DD_BUILDABLE_MAP_REGION_PATCH_ENABLED:-false}
-  DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_TOOL_ENABLE_BINARY_PATCH_ENABLED:-false}
   DUNE_OODLE_LIBRARY: ${DUNE_OODLE_LIBRARY:-/tmp/oodle/liboodle-data-shared.so}
 
 x-game-server-base: &game-server-base
-  image: registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}
+  image: ${DUNE_GAME_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}}
   dns:
     - 1.1.1.1
     - 8.8.8.8
@@ -251,6 +251,11 @@ services:
     # Internal service id is legacy. Partition 31 is the PVE Hardcore Deep Desert.
     profiles: ["disabled-deep-desert-pvp"]
     <<: *game-server-base
+    labels:
+      dune.map.dimension-index: "1"
+      dune.map.partition-label: "02 PVE Hardcore"
+      dune.map.enabled-by-partition-count: "true"
+      dune.map.remove-when-disabled: "true"
     command: [*cmd-run, *cmd-farm-region, *cmd-fls-env, *cmd-server-name, *cmd-datacenter, *cmd-db-host, *cmd-db-user, *cmd-rmq-tls, *cmd-external-address, *cmd-rmq-game-host, *cmd-rmq-game-port, *cmd-rmq-admin-host, *cmd-rmq-admin-port, *cmd-multihome, /Game/Dune/Maps/Arrakis/DeepDesert_1/DeepDesert_1.DeepDesert_1, -Port=7807, -IGWPort=7918, -PartitionIndex=31]
     environment:
       <<: [*game-server-env, *game-server-preload-env]
@@ -260,10 +265,14 @@ services:
       WORLD_NAME: ${WORLD_NAME}
       DUNE_USERGAME_CONFIG_PATH: /workspace/config/UserGame.deep-desert-pvp.ini
       DUNE_USERENGINE_CONFIG_PATH: /workspace/config/UserEngine.deep-desert-pvp.ini
+      DUNE_SERVER_CUSTOM_SETTINGS_PATH: /workspace/config/UserServerCustomSettings.deep-desert-pvp.ini
+      DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED:-false}
+      DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER: ${DUNE_BUILDING_PIECE_LIMIT_MULTIPLIER:-}
+      DUNE_BUILDING_PIECE_LIMIT_MODE: ${DUNE_BUILDING_PIECE_LIMIT_MODE:-server-settings}
       DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED: ${DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED:-false}
       DUNE_BUILDING_PIECE_LIMIT: ${DUNE_BUILDING_PIECE_LIMIT:-10000}
       DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED: ${DUNE_SUBFIEF_CAP_BINARY_PATCH_ENABLED:-false}
-      DUNE_SUBFIEF_CAP_BINARY_TARGET: ${DUNE_SUBFIEF_CAP_BINARY_TARGET:-all}
+      DUNE_SUBFIEF_CAP_BINARY_TARGET: ${DUNE_SUBFIEF_CAP_BINARY_TARGET:-subfief}
       DUNE_SUBFIEF_CAP: ${DUNE_SUBFIEF_CAP:-6}
       DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED: ${DUNE_BRT_DD_INVALID_MAP_BINARY_PATCH_ENABLED:-false}
       DUNE_BRT_DD_ACTION_GATE_BINARY_PATCH_ENABLED: "true"
@@ -276,7 +285,10 @@ services:
     ports: ["7807:7807/udp", "7918:7918/udp"]
     volumes:
       - .:/workspace:ro
-      - ${DUNE_OODLE_HOST_LIBRARY:-/home/keith/Documents/code/DuneAwakeningSelfHost/backups/operator-oodle/liboodle-data-shared.so}:/tmp/oodle/liboodle-data-shared.so:ro
+      - type: bind
+        source: ${DUNE_OODLE_HOST_LIBRARY:-/home/keith/Documents/code/DuneAwakeningSelfHost/backups/operator-oodle/liboodle-data-shared.so}
+        target: /tmp/oodle/liboodle-data-shared.so
+        read_only: true
       - ./data/server-saved/deep-desert-pvp:/home/dune/server/DuneSandbox/Saved
     networks: {default: {ipv4_address: 172.31.240.43}}
 

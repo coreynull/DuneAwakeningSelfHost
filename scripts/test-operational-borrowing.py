@@ -222,24 +222,70 @@ class RunServerSafeTests(unittest.TestCase):
             raw_args = args_out.read_bytes().rstrip(b"\0").split(b"\0")
             decoded = [item.decode("utf-8") for item in raw_args]
             self.assertIn("-MultiHome=172.31.240.40", decoded)
-            # Credential args are intentionally dropped from the command line and
-            # written to Engine.ini via the runtime-secrets path instead.
-            self.assertNotIn("-ini:engine:[ConsoleVariables]:Bgd.ServerLoginPassword=pass with spaces", decoded)
+            self.assertFalse(any("ServerLoginPassword=" in arg for arg in decoded))
             self.assertIn("/Game/Dune/Maps/Test Map", decoded)
             self.assertIn("-ExecCmds=ScheduleMTXEvent SpecializationXPBonus 60 604800,ListMTXEvents", decoded)
             self.assertNotIn("-IGWBindAddress=172.31.240.40", decoded)
 
             engine_ini = server_root / "DuneSandbox" / "Saved" / "Config" / "LinuxServer" / "Engine.ini"
             user_engine_ini = server_root / "DuneSandbox" / "Saved" / "UserSettings" / "UserEngine.ini"
-            # Launch-time runtime-secrets install writes the login password into
-            # Engine.ini; dry-run intentionally skips the install step, so the
-            # password must not appear here (verified present on live maps).
-            self.assertNotIn("Bgd.ServerLoginPassword", engine_ini.read_text(encoding="utf-8"))
+            self.assertNotIn("ServerLoginPassword", engine_ini.read_text(encoding="utf-8"))
             self.assertIn('Bgd.ServerDisplayName="Display With Spaces"', user_engine_ini.read_text(encoding="utf-8"))
+            # Dry-run does not install secrets. Verify the explicit file-backed
+            # installer separately, without putting the password in argv.
+            secret_dir = tmp_path / "secrets"
+            secret_dir.mkdir(mode=0o700)
+            login_file = secret_dir / "dune_server_login_password"
+            login_file.write_text("pass with spaces", encoding="utf-8")
+            login_file.chmod(0o600)
+            subprocess.run([
+                "python3", str(ROOT / "scripts" / "game-runtime-secrets.py"),
+                "install-config", "--server-root", str(server_root),
+                "--secret-dir", str(secret_dir),
+            ], env={**env, "DUNE_RUNTIME_SECRETS_REQUIRED": "false"}, check=True,
+               stdout=subprocess.DEVNULL)
+            self.assertIn('Bgd.ServerLoginPassword="pass with spaces"', engine_ini.read_text(encoding="utf-8"))
+            self.assertEqual(engine_ini.stat().st_mode & 0o777, 0o600)
 
             config_link = dune_home / ".config" / "Epic" / "Unreal Engine" / "Engine" / "Config"
             self.assertTrue(config_link.is_symlink())
             self.assertEqual(config_link.resolve(), server_root / "DuneSandbox" / "Saved" / "UserSettings")
+
+    def test_dry_run_copies_server_custom_settings_to_both_saved_locations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            server_root = tmp_path / "server"
+            dune_home = tmp_path / "home"
+            args_out = tmp_path / "args.nul"
+            custom_source = tmp_path / "UserServerCustomSettings.ini"
+            server_root.mkdir()
+            custom_source.write_text(
+                "[/Script/DuneSandbox.UserServerCustomSettings]\n"
+                "GatheringAmount=3.000000\n",
+                encoding="utf-8",
+            )
+
+            env = {
+                **os.environ,
+                "DUNE_SERVER_ROOT": str(server_root),
+                "DUNE_HOME": str(dune_home),
+                "DUNE_RUN_SERVER_SAFE_DRY_RUN": "true",
+                "DUNE_RUN_SERVER_SAFE_ARGS_OUT": str(args_out),
+                "DUNE_SERVER_CUSTOM_SETTINGS_PATH": str(custom_source),
+                "DUNE_BUILDING_PIECE_LIMIT_SETTINGS_ENABLED": "false",
+                "DUNE_BUILDING_PIECE_LIMIT_PATCH_ENABLED": "false",
+            }
+            subprocess.run(
+                [str(ROOT / "scripts" / "run_server_safe.sh"), "/Game/Dune/Maps/Test"],
+                cwd=ROOT,
+                env=env,
+                check=True,
+            )
+
+            config_copy = server_root / "DuneSandbox" / "Saved" / "Config" / "LinuxServer" / "ServerCustomSettings.ini"
+            user_copy = server_root / "DuneSandbox" / "Saved" / "UserSettings" / "ServerCustomSettings.ini"
+            self.assertEqual(config_copy.read_text(encoding="utf-8"), custom_source.read_text(encoding="utf-8"))
+            self.assertEqual(user_copy.read_text(encoding="utf-8"), custom_source.read_text(encoding="utf-8"))
 
     def test_dry_run_can_force_private_igw_bind_address(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -938,8 +984,9 @@ class OperationalBundleTests(unittest.TestCase):
 class VerifyBackupTests(unittest.TestCase):
     def test_verify_backup_reports_identity_layers_without_pg_restore(self):
         with tempfile.TemporaryDirectory() as tmp:
-            backup_dir = Path(tmp)
-            bin_dir = backup_dir / "bin"
+            backup_dir = Path(tmp) / "backup"
+            backup_dir.mkdir()
+            bin_dir = Path(tmp) / "bin"
             bin_dir.mkdir()
             for tool in ("bash", "tar", "gzip", "rg", "grep", "find", "python3"):
                 target = shutil.which(tool)
@@ -1078,10 +1125,10 @@ class FailoverScriptTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             files = result.stdout.strip().split(":")
-            self.assertIn("compose.fls-ipv4-hosts.yaml", files)
+            self.assertNotIn("compose.fls-ipv4-hosts.yaml", files)
             self.assertIn("compose.director-hostnet-cutover.yaml", files)
             self.assertIn("compose.director-hostnet-port.yaml", files)
-            self.assertLess(files.index("compose.fls-ipv4-hosts.yaml"), files.index("compose.director-hostnet-cutover.yaml"))
+            self.assertLess(files.index("compose.director-hostnet-cutover.yaml"), files.index("compose.director-hostnet-port.yaml"))
 
     def test_router_cutover_dry_run_rewrites_env_driven_ports(self):
         with tempfile.TemporaryDirectory() as tmp:

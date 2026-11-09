@@ -111,6 +111,10 @@ class Store:
         connection.row_factory = sqlite3.Row
         connection.execute("pragma foreign_keys=on")
         connection.execute("pragma busy_timeout=10000")
+        # Full chain verification remains mandatory. A bounded read-only page
+        # mapping avoids a network-filesystem metadata round trip per SQLite
+        # page; unsupported builds retain SQLite's normal read fallback.
+        connection.execute("pragma mmap_size=1073741824")
         return connection
 
     def _key(self) -> bytes:
@@ -463,6 +467,7 @@ class Store:
                 shutil.copyfile(self.key_path, destination_key)
                 shutil.copyfile(self.anchor_path, destination_anchor)
                 with closing(self._connect()) as source, closing(sqlite3.connect(destination_database)) as target:
+                    target.execute("pragma mmap_size=1073741824")
                     source.backup(target)
                     if target.execute("pragma integrity_check").fetchone()[0] != "ok":
                         raise RuntimeError("audit ledger backup failed SQLite integrity_check")

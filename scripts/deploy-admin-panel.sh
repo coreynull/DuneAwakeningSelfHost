@@ -1,9 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+run_admin_tests() {
+  (
+    cd "$script_dir/.."
+    python3 -m py_compile admin/*.py scripts/http_url.py scripts/check-current-steam-build.py scripts/snapshot-audit-ledger.py scripts/backup-restore-drill.py scripts/operational-slo.py scripts/capacity-intelligence.py scripts/desired-state.py scripts/change-intelligence.py scripts/deployment-assurance.py scripts/build-cosmetic-catalog.py scripts/admin-chat-commands.py scripts/player-presence-announcer.py
+    python3 -m unittest scripts/test-cosmetics-admin.py
+    python3 scripts/test-restore-drill.py
+    python3 scripts/test-operational-slo.py
+    python3 scripts/test-capacity-intelligence.py
+    python3 scripts/test-desired-state.py
+    python3 scripts/test-change-intelligence.py
+    python3 scripts/test-deployment-assurance.py
+    python3 scripts/test-admin-panel-safe-surfaces.py
+    python3 scripts/test-docker-api-proxy.py
+    python3 scripts/test-security-boundaries.py
+    python3 scripts/test-deploy-admin-panel.py
+    python3 scripts/test-dune-restart-api.py
+    python3 scripts/test-host-service-control.py
+    python3 scripts/test-rollout-runtime-security.py
+    python3 scripts/test-backup-verification-view.py
+    python3 scripts/test-snapshot-operator-evidence.py
+    python3 scripts/test-compose-file-protocol.py
+  )
+}
+
+# Run the native suite before staging or touching a production workspace.
+if [[ "${1:-}" == --test-only ]]; then
+  [[ $# == 1 ]] || { printf 'usage: %s --test-only\n' "$0" >&2; exit 2; }
+  run_admin_tests
+  exit
+fi
+
 env_file="${1:-${DUNE_ENV_FILE:-.env}}"
 container_runtime="${CONTAINER_RUNTIME:-docker}"
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/lib/snape-curl-auth.sh"
 if [[ -x "$script_dir/compose-files.sh" ]]; then
   COMPOSE_FILES="$("$script_dir/compose-files.sh" "$env_file")"
   export COMPOSE_FILES
@@ -107,16 +140,7 @@ repair_running_map_runtime_patches() {
   return 1
 }
 
-python3 -m py_compile admin/*.py scripts/backup-restore-drill.py scripts/operational-slo.py scripts/capacity-intelligence.py scripts/desired-state.py scripts/change-intelligence.py scripts/deployment-assurance.py scripts/build-cosmetic-catalog.py scripts/admin-chat-commands.py scripts/player-presence-announcer.py
-python3 -m unittest scripts/test-cosmetics-admin.py
-python3 scripts/test-restore-drill.py
-python3 scripts/test-operational-slo.py
-python3 scripts/test-capacity-intelligence.py
-python3 scripts/test-desired-state.py
-python3 scripts/test-change-intelligence.py
-python3 scripts/test-deployment-assurance.py
-python3 scripts/test-admin-panel-safe-surfaces.py
-python3 scripts/test-deploy-admin-panel.py
+run_admin_tests
 
 "${compose[@]}" up -d --no-recreate postgres
 
@@ -144,6 +168,22 @@ mkdir -p -- "$(dirname -- "$maintenance_marker_host")"
 printf 'pid=%s started=%s\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$maintenance_marker_host"
 maintenance_marker_created=true
 wait_for_autoscaler_idle
+
+"${compose[@]}" up -d --no-deps --force-recreate docker-api-broker
+broker_id="$("${compose[@]}" ps -q docker-api-broker)"
+deadline=$((SECONDS + 60))
+broker_status=""
+while (( SECONDS < deadline )); do
+  broker_status="$("$container_runtime" inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$broker_id" 2>/dev/null || true)"
+  if [[ "$broker_status" == healthy ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ "$broker_status" != healthy ]]; then
+  printf 'Docker API broker did not become healthy before admin-panel deploy\n' >&2
+  exit 1
+fi
 
 "${compose[@]}" up -d --no-deps --force-recreate admin-panel admin-panel-ingress
 
@@ -173,6 +213,31 @@ if [[ "$affinity_enabled" == "true" && -x "$script_dir/cpu-affinity.sh" ]]; then
     --confirm "APPLY DUNE CPU AFFINITY" --persist
 fi
 
-./scripts/check-admin-ingress.sh "$env_file"
+
+wait_for_admin_ingress() {
+  local timeout="${DUNE_ADMIN_DEPLOY_INGRESS_READY_SECONDS:-300}" deadline remaining consecutive=0
+  [[ "$timeout" =~ ^[0-9]{1,3}$ ]] && (( 10#$timeout >= 30 && 10#$timeout <= 300 )) || {
+    printf 'DUNE_ADMIN_DEPLOY_INGRESS_READY_SECONDS must be 30..300 seconds\n' >&2
+    return 1
+  }
+  command -v timeout >/dev/null || { printf 'timeout is required for bounded ingress readiness\n' >&2; return 1; }
+  deadline=$((SECONDS + 10#$timeout))
+  while (( SECONDS < deadline )); do
+    remaining=$((deadline - SECONDS))
+    if timeout --kill-after=2 "${remaining}s" "$script_dir/check-admin-ingress.sh" "$env_file"; then
+      (( SECONDS <= deadline )) || break
+      consecutive=$((consecutive + 1))
+      printf 'admin ingress readiness: %s/2 consecutive healthy checks\n' "$consecutive"
+      (( consecutive < 2 )) || return 0
+    else
+      consecutive=0
+    fi
+    sleep 3
+  done
+  printf 'admin ingress did not reach two consecutive healthy checks within %ss\n' "$timeout" >&2
+  return 1
+}
+
+wait_for_admin_ingress
 repair_running_map_runtime_patches
 printf 'OK: deployed admin-panel using %s\n' "$env_file"

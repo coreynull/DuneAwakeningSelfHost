@@ -1,3 +1,4 @@
+# Runner policy: compatible GitHub-hosted Linux x64; private JIT for special requirements.
 name: Release
 
 on:
@@ -17,8 +18,8 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'snapetech/DuneAwakeningSelfHost'
-    runs-on: ubuntu-latest
+    if: github.repository == 'snapetech-org/DuneAwakeningSelfHost'
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Check out the tagged commit
