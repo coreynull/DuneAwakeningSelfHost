@@ -241,7 +241,7 @@ def _safe_name(raw):
 def safe_extract_state(archive_path, destination, member_prefix=None):
     archive_path = pathlib.Path(archive_path)
     destination = pathlib.Path(destination)
-    destination.mkdir(parents=True, exist_ok=False, mode=0o750)
+    destination.mkdir(parents=True, exist_ok=False, mode=0o700)
     prefix = pathlib.PurePosixPath(str(member_prefix).strip("/")) if member_prefix else None
     members = files = total = archive_total = 0
     try:
@@ -270,10 +270,10 @@ def safe_extract_state(archive_path, destination, member_prefix=None):
                     continue
                 target = destination.joinpath(*pure.parts)
                 if member.isdir():
-                    target.mkdir(parents=True, exist_ok=True, mode=0o750)
-                    os.chmod(target, 0o750)
+                    target.mkdir(parents=True, exist_ok=True, mode=0o700)
+                    os.chmod(target, 0o700)
                     continue
-                target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+                target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                 source = archive.extractfile(member)
                 if source is None:
                     raise ValueError("RabbitMQ archive member is unreadable")
@@ -316,7 +316,7 @@ def _extract_exact(archive_path, member_name, destination, maximum=1024 * 1024):
         if len(value) != member.size or len(value) > maximum:
             raise ValueError(f"backup member {member_name} is truncated or oversized")
     destination = pathlib.Path(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     destination.write_bytes(value)
     os.chmod(destination, 0o400)
     return destination
@@ -361,7 +361,7 @@ def _handoff_tree(root, run_uid, run_gid, *, read_only=False):
     for path in paths:
         if path.is_symlink():
             raise ValueError("RabbitMQ staging tree may not contain symlinks")
-        mode = 0o750 if path.is_dir() else 0o400 if read_only else 0o600
+        mode = 0o700 if path.is_dir() else 0o400 if read_only else 0o600
         os.chmod(path, mode)
         if os.geteuid() == 0:
             os.chown(path, int(run_uid), int(run_gid))
@@ -537,7 +537,7 @@ def _topology(docker, container):
 
 def _atomic_json(path, payload, owner_uid=None, owner_gid=None):
     path = pathlib.Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
     try:
         with temporary.open("xb") as handle:
@@ -627,8 +627,8 @@ def verify_history(root):
 
 def _write_receipt(root, receipt, owner_uid=None, owner_gid=None, retention=1000):
     root = pathlib.Path(root)
-    root.mkdir(parents=True, exist_ok=True, mode=0o750)
-    os.chmod(root, 0o750)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(root, 0o700)
     if os.geteuid() == 0 and owner_uid is not None and owner_gid is not None:
         os.chown(root, int(owner_uid), int(owner_gid))
     latest = root / "latest.json"
@@ -705,14 +705,14 @@ def _run_one(docker, name, state, stage, host_stage, image, run_uid, run_gid,
         raise RabbitMQRestoreDrillError(f"{name} backup node identity does not match the expected broker")
     stale_pid_removed = _remove_stale_pid(state, hostname)
     config_dir = stage / f"{name}-config"
-    config_dir.mkdir(mode=0o750)
+    config_dir.mkdir(mode=0o700)
     config_file = _extract_exact(stage / "config.tgz", definition["config"], config_dir / "99-dune.conf")
     plugins = _extract_exact(stage / "config.tgz", "config/rabbitmq-enabled-plugins", config_dir / "enabled_plugins")
     passwd = config_dir / "passwd"; group = config_dir / "group"
     _stage_identity(passwd, run_uid, run_gid, "passwd"); _stage_identity(group, run_uid, run_gid, "group")
     tls = {}
     if definition["tls"]:
-        tls_dir = config_dir / "tls"; tls_dir.mkdir(mode=0o750)
+        tls_dir = config_dir / "tls"; tls_dir.mkdir(mode=0o700)
         for source_name, target_name in (("ca.crt", "cacert.pem"), ("server.crt", "cert.pem"), ("server.key", "key.pem")):
             local = _extract_exact(stage / "config-tls.tgz", f"config/tls/rabbitmq/{source_name}", tls_dir / source_name, 1024 * 1024)
             tls[local] = f"/etc/rabbitmq/{target_name}"
@@ -779,11 +779,11 @@ def run_drill(workspace, *, host_workspace=None, backup_set=None, receipt_root=N
         existing_parent = existing_parent.parent
     if existing_parent.is_symlink() or not _within(existing_parent.resolve(strict=True), backup_root):
         raise ValueError("RabbitMQ drill receipt path contains an unsafe parent")
-    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o750)
+    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     receipt_root = receipt_root.resolve(strict=True)
     if not _within(receipt_root, backup_root):
         raise ValueError("RabbitMQ drill receipts must remain beneath workspace/backups")
-    os.chmod(receipt_root, 0o750)
+    os.chmod(receipt_root, 0o700)
     if os.geteuid() == 0:
         os.chown(receipt_root, run_uid, run_gid)
     lock_flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
@@ -800,7 +800,7 @@ def run_drill(workspace, *, host_workspace=None, backup_set=None, receipt_root=N
         started_epoch = time.time(); started_mono = time.monotonic()
         identifier = datetime.datetime.fromtimestamp(started_epoch, datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(6)
         stage = receipt_root / f".stage-{identifier}"
-        stage.mkdir(mode=0o750)
+        stage.mkdir(mode=0o700)
         host_stage = host_workspace / stage.relative_to(workspace)
         age = max(0.0, started_epoch - backup_created_epoch(selected))
         receipt = {"receiptSchema": 1, "id": identifier, "startedAt": _utc(started_epoch),
