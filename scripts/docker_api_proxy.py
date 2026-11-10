@@ -425,6 +425,12 @@ def allowed_rabbitmq_command(command) -> bool:
     return len(command) == 3 and command[:2] == ["rabbitmqctl", "eval"] and bool(RMQ_EVAL_RE.fullmatch(command[2]))
 
 
+
+# Byte-exact copy of COUNT_TOPOLOGY_SCRIPT from admin/rabbitmq_restore_drill.py.
+# Keep in sync the same way RMQ_EVAL_RE mirrors the drill's Erlang eval.
+RMQ_COUNT_SCRIPT = '\nset -eu\nmode="$1"\nshift\nvalue=$(rabbitmqctl -q --no-table-headers "$@")\nif [ "$mode" = messages ]; then\n    printf \'%s\\n\' "$value" | awk \'\n        NF { if (NF != 1 || $1 !~ /^[0-9]+$/) { bad=1; exit 1 }; rows++; total+=$1 }\n        END { if (!bad) printf "%.0f %.0f\\n", rows, total }\'\nelse\n    printf \'%s\\n\' "$value" | awk \'NF { rows++ } END { printf "%.0f\\n", rows }\'\nfi\n'
+RMQ_COUNT_ARG_RE = re.compile(r"[A-Za-z0-9_./:-]{1,64}\Z")
+
 def allowed_drill_command(command) -> bool:
     if not isinstance(command, list) or not command or len(command) > 64:
         return False
@@ -432,6 +438,18 @@ def allowed_drill_command(command) -> bool:
         return False
     # These are utilities used by the restore workflows. The container must
     # independently pass the no-network, no-capability, read-only-root policy.
+    if command[0] == "/bin/sh":
+        # Only the byte-exact RMQ topology-count script wrapper is admitted; the
+        # trailing tokens are separate argv elements consumed by rabbitmqctl, never
+        # by the shell, and must match a strict token charset.
+        return (
+            len(command) >= 6
+            and command[1] == "-c"
+            and command[2] == RMQ_COUNT_SCRIPT
+            and command[3] == "dash-rmq-count"
+            and command[4] in {"messages", "rows"}
+            and all(RMQ_COUNT_ARG_RE.fullmatch(tok) for tok in command[5:])
+        )
     return command[0] in {
         "pg_isready", "sha256sum", "stat", "pg_restore", "psql", "vacuumdb",
         "pg_dump", "rabbitmq-diagnostics", "rabbitmqctl",
@@ -634,6 +652,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
                     raise ProxyError(403, "only approved RabbitMQ commands are available")
             elif role in {"pg", "rabbitmq"}:
                 if not allowed_drill_command(command):
+                    try:
+                        print(
+                            "docker-api-proxy drill-exec-rejected role=%s cmd0=%r len=%s preview=%r"
+                            % (role, command[0] if isinstance(command, list) and command else None,
+                               len(command) if isinstance(command, list) else -1,
+                               str(command)[:220]),
+                            flush=True,
+                        )
+                    except Exception:
+                        pass
                     raise ProxyError(403, "command is not allowed in the isolated restore drill")
             else:
                 raise ProxyError(403, "Docker exec is unavailable for this container")

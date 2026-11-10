@@ -113,11 +113,17 @@ def _confined_path(root, raw, default):
     if candidate.is_symlink():
         raise ValueError("credential path must not be a symlink")
     resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError("credential path escapes workspace") from exc
-    return resolved
+    allowed_roots = [root]
+    secret_source = str(os.environ.get("DUNE_SECRET_SOURCE_DIRECTORY") or "").strip()
+    if secret_source:
+        allowed_roots.append(pathlib.Path(secret_source).resolve(strict=False))
+    for allowed_root in allowed_roots:
+        try:
+            resolved.relative_to(allowed_root)
+            return resolved
+        except ValueError:
+            continue
+    raise ValueError("credential path escapes workspace")
 
 
 def _material(entry, root, environment, env_file):
