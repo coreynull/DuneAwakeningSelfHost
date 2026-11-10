@@ -651,8 +651,8 @@ def _stage_identity(path, content, run_uid, run_gid):
 
 def _write_receipt(receipt_root, receipt, retention_count=1000, owner_uid=None, owner_gid=None):
     receipt_root = pathlib.Path(receipt_root)
-    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(receipt_root, 0o700)
+    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o750)
+    os.chmod(receipt_root, 0o750)
     if os.geteuid() == 0 and owner_uid is not None and owner_gid is not None:
         os.chown(receipt_root, int(owner_uid), int(owner_gid))
     previous = None
@@ -754,11 +754,11 @@ def run_drill(workspace, *, host_workspace=None, source=None, receipt_root=None,
     if run_uid <= 0 or run_gid < 0:
         raise ValueError("restore-drill PostgreSQL must run as a non-root UID/GID")
     receipt_root = pathlib.Path(receipt_root or workspace / "backups" / "admin-panel" / "restore-drills")
-    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    receipt_root.mkdir(parents=True, exist_ok=True, mode=0o750)
     backup_root = (workspace / "backups").resolve(strict=True)
     if not _within(receipt_root.resolve(strict=True), backup_root):
         raise ValueError("restore-drill receipts and private staging must remain beneath workspace/backups")
-    os.chmod(receipt_root, 0o700)
+    os.chmod(receipt_root, 0o750)
     if os.geteuid() == 0:
         os.chown(receipt_root, run_uid, run_gid)
     lock_path = receipt_root / ".restore-drill.lock"
