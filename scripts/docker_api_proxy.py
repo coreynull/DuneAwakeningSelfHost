@@ -257,6 +257,62 @@ def _bounded_host_config(host, role, uid, gid):
     return True
 
 
+
+def _log_drill_rejection(name, spec):
+    """Diagnostic only: log which restore-profile sub-check failed for a rejected create.
+
+    Keeps the security decision byte-identical (validate_restore_create is the sole
+    authority); this reconstructs the same checks for the log so a 403 is diagnosable.
+    """
+    try:
+        host = spec.get("HostConfig") if isinstance(spec, dict) else None
+        env = spec.get("Env") if isinstance(spec, dict) else None
+        labels = spec.get("Labels") if isinstance(spec, dict) else None
+        mounts = host.get("Mounts") if isinstance(host, dict) else None
+        tmpfs = host.get("Tmpfs") if isinstance(host, dict) else None
+        image = spec.get("Image") if isinstance(spec, dict) else None
+        user = spec.get("User") if isinstance(spec, dict) else None
+        env_map = _env_map(env) if isinstance(env, list) else None
+        pg_expected = {
+            "POSTGRES_DB": "drill", "POSTGRES_USER": "dune",
+            "POSTGRES_HOST_AUTH_METHOD": "trust", "PGDATA": "/var/lib/postgresql/data/pgdata",
+        }
+        mount_bits = []
+        if isinstance(mounts, list):
+            for m in mounts:
+                if isinstance(m, dict):
+                    mount_bits.append(
+                        "%s:%s allowed=%s" % (
+                            m.get("Target"), m.get("Source"),
+                            _restore_source_allowed(str(m.get("Source") or "")),
+                        )
+                    )
+        pair = _user_pair(user or "1:1")
+        print(
+            "docker-api-proxy drill-rejected"
+            " name=%s image_known=%s name_re=%s labels_ok=%s top_keys=%s stop_timeout=%s"
+            " user_pair=%s env_ok=%s mounts=[%s] tmpfs_keys=%s host_keys=%s bounded=%s"
+            " host_root=%s" % (
+                name,
+                image in PG_IMAGES if isinstance(image, str) else False,
+                bool(PG_NAME_RE.fullmatch(name)) or bool(RMQ_NAME_RE.fullmatch(name)),
+                labels in ({DRILL_LABELS["pg"][0]: "true"}, {DRILL_LABELS["rabbitmq"][0]: "true"}),
+                sorted(spec.keys()) if isinstance(spec, dict) else None,
+                spec.get("StopTimeout") if isinstance(spec, dict) else None,
+                _user_pair(user),
+                env_map == pg_expected if env_map is not None else False,
+                "; ".join(mount_bits),
+                sorted(tmpfs.keys()) if isinstance(tmpfs, dict) else None,
+                sorted(host.keys()) if isinstance(host, dict) else None,
+                _bounded_host_config(host, "pg", pair[0], pair[1]) if isinstance(host, dict) and pair else False,
+                RESTORE_HOST_ROOT,
+            ),
+            flush=True,
+        )
+    except Exception:
+        print("docker-api-proxy drill-rejected diagnostic failed", flush=True)
+
+
 def validate_restore_create(name: str, spec: dict) -> str | None:
     """Return the safe restore profile, or None if the body exceeds policy."""
     if not isinstance(spec, dict):
@@ -608,6 +664,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             spec = decode_json(body)
             role = validate_restore_create(name, spec)
             if not role:
+                _log_drill_rejection(name, spec)
                 raise ProxyError(403, "container does not match an approved isolated restore profile")
             return path + "?" + urllib.parse.urlencode({"name": name}), 15, 1024 * 1024, ("record-container", role)
 
