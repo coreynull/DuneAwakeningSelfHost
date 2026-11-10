@@ -1254,6 +1254,7 @@ services:
       - ./backups:/workspace/backups
       - ./data:/workspace/data:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/hermes/docker-cli/docker:/usr/local/bin/docker:ro
       - /run/dune-restart-api/restart.sock:/run/dune-restart-api.sock:ro
       - dune-docker-api:/run/dune-docker-api:ro
     secrets:
