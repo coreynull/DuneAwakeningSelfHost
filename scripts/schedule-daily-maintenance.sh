@@ -360,7 +360,7 @@ if required and not token:
     raise SystemExit("change contract is required but the preflight returned no token")
 print("true" if required else "false", token)
 ' <<<"$contract_response")
-  args=(-fsS -H "Content-Type: application/json" -X POST --data "$body" "${auth_args[@]}")
+  args=(-H "Content-Type: application/json" -X POST --data "$body" "${auth_args[@]}")
   if [[ "$contract_required" == "true" ]]; then
     args+=(-H "X-DASH-Change-Contract: $contract_token")
   fi
