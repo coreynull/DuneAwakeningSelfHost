@@ -1075,7 +1075,7 @@ services:
       # Exact-service recovery uses the guarded host socket; image updates remain separate.
       DUNE_ADMIN_SERVICE_CONTROL_ENABLED: ${DUNE_ADMIN_SERVICE_CONTROL_ENABLED:-false}
       DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED: ${DUNE_ADMIN_STATEFUL_SERVICE_CONTROL_ENABLED:-false}
-      DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED: ${DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED:-false}
+      DUNE_ADMIN_UPDATE_MUTATIONS_ENABLED: "false"
       DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED: ${DUNE_ADMIN_REPUTATION_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED: ${DUNE_ADMIN_JOURNEY_MUTATIONS_ENABLED:-false}
       DUNE_ADMIN_FACTION_MUTATIONS_ENABLED: ${DUNE_ADMIN_FACTION_MUTATIONS_ENABLED:-false}
@@ -1166,7 +1166,10 @@ services:
       DUNE_RESTART_COMPOSE_PROJECT: ${DUNE_RESTART_COMPOSE_PROJECT:-dune_server}
       DUNE_RESTART_API_SOCKET: /run/dune-restart-api.sock
       DUNE_ADMIN_RESTART_RECOVERY_ENABLED: ${DUNE_ADMIN_RESTART_RECOVERY_ENABLED:-true}
-      DUNE_RESTART_DOCKER_SOCKET: ${DUNE_RESTART_DOCKER_SOCKET:-/run/dune-docker-api/docker.sock}
+      DUNE_RESTART_DOCKER_SOCKET: /run/dune-docker-api/docker.sock
+      # Upstream defect (vanilla audit U13): fls-publication-health.py defaults DOCKER_SOCKET to the raw
+      # socket, which this service stubs with /dev/null. Point it at the mediated broker instead.
+      DOCKER_SOCKET: /run/dune-docker-api/docker.sock
       DUNE_RESTART_HOST_WORKSPACE: ${DUNE_RESTART_HOST_WORKSPACE:-${DUNE_ANNOUNCE_HOST_WORKSPACE:-}}
       DUNE_RESTART_COMPOSE_IMAGE: ${DUNE_RESTART_COMPOSE_IMAGE:-docker:27.5.1-cli}
       DUNE_RESTART_USE_HOST_COMPOSE: "false"
@@ -1255,8 +1258,7 @@ services:
       - ./.env:/workspace/.env
       - ./backups:/workspace/backups
       - ./data:/workspace/data:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/hermes/docker-cli/docker:/usr/local/bin/docker:ro
+      - /dev/null:/var/run/docker.sock:ro
       - /run/dune-restart-api/restart.sock:/run/dune-restart-api.sock:ro
       - dune-docker-api:/run/dune-docker-api:ro
     secrets:
