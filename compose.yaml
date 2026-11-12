@@ -188,7 +188,6 @@ services:
   admin-rmq:
     image: ${DUNE_RABBITMQ_SECURITY_IMAGE:-snape/dune-rabbitmq:security-2168446}
     hostname: admin-rmq
-    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:03
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
     command: ["rabbitmq-server"]
@@ -222,7 +221,6 @@ services:
   game-rmq:
     image: ${DUNE_RABBITMQ_SECURITY_IMAGE:-snape/dune-rabbitmq:security-2168446}
     hostname: game-rmq
-    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:04
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "rabbitmq"]
     command: ["rabbitmq-server"]
@@ -258,7 +256,6 @@ services:
 
   rmq-auth-shim:
     image: ${DUNE_DB_UTILS_SECURITY_IMAGE:-snape/dune-db-utils:python-security-2173753}
-    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:07
     working_dir: /workspace
     environment:
@@ -361,7 +358,6 @@ services:
 
   text-router:
     image: ${DUNE_TEXT_ROUTER_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}}
-    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:06
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "text-router"]
     dns:
@@ -414,7 +410,6 @@ services:
 
   gateway:
     image: ${DUNE_GATEWAY_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}}
-    restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:28
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "gateway"]
     dns:
