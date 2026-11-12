@@ -27,6 +27,7 @@ import sys
 import tarfile
 import tempfile
 import threading
+import traceback
 import time
 import urllib.error
 import urllib.parse
@@ -4834,6 +4835,11 @@ def autoscaler_tick(force=False, collect_demand=True):
                 "reconcileCount": int(AUTOSCALER_RUNTIME.get("reconcileCount") or 0) + 1,
             })
         except Exception as exc:
+            if str(exc) != AUTOSCALER_RUNTIME.get("lastError"):
+                # Log each new failure: an unlogged reconcile error left 27 idle maps
+                # running for 8h on 2026-11-12 with no trace of the cause.
+                print(f"autoscaler: reconciliation failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+                traceback.print_exc(file=sys.stderr)
             AUTOSCALER_RUNTIME.update({"lastMessage": "Autoscaler reconciliation failed.", "lastError": str(exc), "lastActions": actions})
         finally:
             AUTOSCALER_RUNTIME.update({"running": False, "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()})
@@ -4905,6 +4911,9 @@ def autoscaler_worker():
         try:
             last_reconcile = autoscaler_worker_iteration(last_reconcile)
         except Exception as exc:
+            if str(exc) != AUTOSCALER_RUNTIME.get("lastError"):
+                print(f"autoscaler: worker iteration failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+                traceback.print_exc(file=sys.stderr)
             AUTOSCALER_RUNTIME.update({"lastError": str(exc), "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()})
         time.sleep(AUTOSCALER_POLL_SECONDS)
 
