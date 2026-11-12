@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ipaddress
 import os
 import pathlib
 import sys
@@ -18,6 +19,27 @@ MANAGEMENT_USER = os.environ.get("DUNE_RMQ_MANAGEMENT_USER", "")
 MANAGEMENT_PASSWORD = read_secret_env("DUNE_RMQ_MANAGEMENT_PASSWORD")
 SERVICE_USER_RE = re.compile(rf"^(sg|bgd|tr)\.{re.escape(WORLD_UNIQUE_NAME)}\.[^.]+(?:\.(game|admin))?$")
 PLAYER_USER_RE = re.compile(r"^[0-9A-Fa-f]{16}$")
+# Service identities are granted without a password check. When configured, only
+# accept them from these networks (the farm's Docker bridge) at the vhost check,
+# which RabbitMQ sends with the client address. Unset keeps the previous behavior.
+SERVICE_USER_CIDRS = [
+    ipaddress.ip_network(item.strip(), strict=False)
+    for item in os.environ.get("DUNE_RMQ_SERVICE_USER_CIDRS", "").split(",")
+    if item.strip()
+]
+
+
+def service_source_allowed(form: dict[str, str]) -> bool:
+    if not SERVICE_USER_CIDRS:
+        return True
+    raw = form.get("ip", "").strip()
+    if raw.lower().startswith("::ffff:"):
+        raw = raw[7:]
+    try:
+        address = ipaddress.ip_address(raw)
+    except ValueError:
+        return False
+    return any(address in network for network in SERVICE_USER_CIDRS)
 
 
 def parse_form(body: bytes) -> dict[str, str]:
@@ -53,6 +75,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(b"deny")
                 return
             if SERVICE_USER_RE.match(username):
+                if self.path == "/v0/auth/vhost" and not service_source_allowed(form):
+                    self.respond(b"deny")
+                    return
                 if self.path == "/v0/auth/user":
                     self.respond(b"allow administrator")
                     return

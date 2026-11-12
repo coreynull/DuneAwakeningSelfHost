@@ -263,6 +263,8 @@ services:
       TEXT_ROUTER_AUTH_BASE: http://text-router:8080
       DUNE_RMQ_MANAGEMENT_USER: ${DUNE_ANNOUNCE_RMQ_USER:-bgd.${WORLD_UNIQUE_NAME}.duneadmin.admin}
       DUNE_RMQ_MANAGEMENT_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
+      # Passwordless service identities (sg|bgd|tr.<world>.*) are accepted only from the farm bridge.
+      DUNE_RMQ_SERVICE_USER_CIDRS: ${DUNE_RMQ_SERVICE_USER_CIDRS:-172.31.240.0/24}
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
