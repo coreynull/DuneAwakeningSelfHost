@@ -42,6 +42,15 @@ def official_template(map_names):
 
 
 class MapWorkerDiscoveryTest(unittest.TestCase):
+    def test_empty_game_override_resolves_nested_vendor_image(self):
+        image = "${DUNE_GAME_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}}"
+        self.assertEqual(
+            "registry.funcom.com/funcom/self-hosting/seabass-server:2180427-0-shipping",
+            sync_map_workers._expand_env(image, {
+                "DUNE_GAME_IMAGE": "", "DUNE_IMAGE_TAG": "2180427-0-shipping",
+            }),
+        )
+
     def test_port_ranges_parse_and_reject_invalid_bounds(self):
         self.assertEqual(
             (7777, 7871),
@@ -279,7 +288,7 @@ class MapWorkerDiscoveryTest(unittest.TestCase):
             "igw_port": 7919,
             "ipv4_address": "172.31.240.44",
         }
-        template_service = {"command": [
+        template_service = {"image": "${DUNE_GAME_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}}", "command": [
             "/workspace/scripts/run_server_safe.sh",
             "-MultiHome=$$POD_IP",
             "/Game/Dungeons/OldMap.OldMap",
@@ -294,6 +303,7 @@ class MapWorkerDiscoveryTest(unittest.TestCase):
         )
 
         self.assertIn("ports: !override", output)
+        self.assertIn('image: "${DUNE_GAME_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server:${DUNE_IMAGE_TAG}}"', output)
         self.assertIn('"7808:7808/udp"', output)
         self.assertIn('"7919:7919/udp"', output)
         self.assertNotIn("${FLS_SECRET}", output)

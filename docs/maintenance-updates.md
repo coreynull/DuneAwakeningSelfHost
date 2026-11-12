@@ -17,9 +17,25 @@ operator certifies and applies the candidate in Infrastructure. The legacy
 fully automatic behavior requires the explicit
 `DUNE_HOTFIX_AUTO_APPLY_WITHOUT_READINESS=true` opt-out.
 
+With `DUNE_AUTO_QUALIFY_GAME_IMAGE=true`, the updater stages the Steam package,
+builds a local game image from the exact loaded vendor image, checks the game
+payload and embedded Python, and scans the exported candidate before approving
+it. A failed qualification clears the custom image override and applies the
+official vendor image. Retries for the same vendor image are spaced by
+`DUNE_AUTO_QUALIFY_RETRY_SECONDS` (default six hours), while a changed package
+triggers a fresh attempt. See [`runtime-security-images.md`](runtime-security-images.md)
+for the evidence and checks. With automatic qualification disabled, an existing
+qualified override remains pinned to its approved vendor build and requires
+manual requalification before a later build can apply. The hotfix timer reads
+the protected `.env`; keep it linked to the private Compose dotenv.
+
 The hotfix service is bounded to 90 minutes per run. Its timer waits 15 minutes
 after the service exits before polling again, so a slow or failed update does
 not cause overlapping work or an immediate retry when a long run finishes.
+After a farm restart, the updater waits up to seven minutes for Director and
+Gateway FLS publication to pass; `DUNE_FLS_PUBLICATION_WAIT_SECONDS` can change
+that bound. This covers the short period when Gateway has declared the farm but
+Director's first population update still sees an inactive battlegroup.
 
 ## Independent Health Alerts
 
@@ -39,6 +55,11 @@ finding set and a recovery message after they clear. Its state is stored under
 Prometheus scraping. Those provide local visibility, but they do not deliver
 mail by themselves, and a Prometheus comparison against a missing metric does
 not fire.
+
+While an updater or public-IP check is running, skipped Steam and farm checks
+retain their last findings. A oneshot service retry also retains its failure
+until it finishes. Starting a retry is not recovery evidence. A state-directory
+lock serializes monitor invocations to prevent duplicate notifications.
 
 Install or refresh the monitor and its failure hooks with:
 
@@ -309,6 +330,20 @@ SteamCMD through `DUNE_RESTART_STEAMCMD_HELPER_IMAGE`. The default helper image
 is `cm2network/steamcmd:root`; pre-pull it before relying on unattended
 maintenance if you do not want the maintenance window to depend on a Docker Hub
 pull.
+The production helper can be pinned to a scanned local package overlay in the
+protected environment. The November 10 overlay
+`snape/dune-steamcmd:security-20261110` was built from the exact local
+`cm2network/steamcmd:root` ID
+`sha256:e6b6b3503bf0e41feafe12dc709c90151afba193e1292cac55d28a7d470b1493`
+with [the SteamCMD security Dockerfile](../scripts/docker-steamcmd-cve.Dockerfile).
+The same Trivy database found 9 CRITICAL / 150 HIGH in the base and 0 CRITICAL
+/ 51 HIGH in the overlay, with no new HIGH/CRITICAL identities; the remaining
+51 have no listed fixed Debian package. SteamCMD payload hashes were identical,
+and an isolated, credential-free online `+quit` smoke test completed. The
+private env selects this overlay via `DUNE_RESTART_STEAMCMD_HELPER_IMAGE`; the
+upstream default remains for installations without the qualified local image.
+An upstream base refresh requires a new exact-image build, scan, and smoke
+check before changing the protected pin.
 
 When the production SteamCMD runtime is known-broken, enable the separate
 worker fallback with `DUNE_STEAM_UPDATE_WORKER_ENABLED=true` plus

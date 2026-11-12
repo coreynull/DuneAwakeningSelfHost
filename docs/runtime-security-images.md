@@ -1,9 +1,96 @@
 # Qualified game runtime images
 
+## Control-plane package overlays
+
+For the November 2026 Kerberos/libxslt advisory wave, exact-base candidates
+can be built with `images/gateway-security/Dockerfile.krb5-2026-11` and
+`images/postgres-security/Dockerfile.libxslt-2026-11`. The gateway candidate
+pins Alpine 3.24 `krb5-libs` 1.22.3-r0; the database candidate pins Alpine
+3.21 `libxslt` 1.1.42-r3 while retaining PostgreSQL 17.4. Scan the immutable
+candidate IDs and verify image configuration and base-layer lineage before
+any handoff. Alpine 3.21 is past distribution support, so a zero-finding scan
+of that database image does not establish complete vulnerability coverage.
+Keep candidates separate from live tags until the assured operator workflow
+supplies signed readiness, player checks, verified backup, and rollback.
+
+After the guarded November 2026 rollout, the PostgreSQL 17.4 default is
+`snape/dune-postgres:security-17.4-alpine321-fc13-libxslt-20261111`. Build it
+from the exact vendor base on each host before Compose deployment; the tag is
+local and is not a registry fallback. The rollout retained PostgreSQL 17.4,
+verified streaming replication and the required map processes, and refreshed
+the two isolated lab databases. Keep the previous image available for rollback.
+
+The director and text router can use locally built package overlays for a
+specific vendor build. Build each overlay from the exact vendor image selected
+by `DUNE_IMAGE_TAG`, then scan and test it before changing the private `.env`.
+Set all three fields per service; the image ID is the full `docker image
+inspect --format '{{.Id}}'` value:
+
+```dotenv
+DUNE_DIRECTOR_IMAGE=snape/dune-bg-director:security-<vendor-build>
+DUNE_DIRECTOR_IMAGE_ID=sha256:<64 lowercase hexadecimal characters>
+DUNE_DIRECTOR_VENDOR_TAG=<same value as DUNE_IMAGE_TAG>
+DUNE_TEXT_ROUTER_IMAGE=snape/dune-text-router:security-<vendor-build>
+DUNE_TEXT_ROUTER_IMAGE_ID=sha256:<64 lowercase hexadecimal characters>
+DUNE_TEXT_ROUTER_VENDOR_TAG=<same value as DUNE_IMAGE_TAG>
+DUNE_GATEWAY_IMAGE=snape/dune-gateway:security-<vendor-build>
+DUNE_GATEWAY_IMAGE_ID=sha256:<64 lowercase hexadecimal characters>
+DUNE_GATEWAY_VENDOR_TAG=<same value as DUNE_IMAGE_TAG>
+```
+
+The running-image verifier rejects an incomplete pin, a changed loaded image,
+an unapproved local image, or an overlay from an older vendor build. Keep the
+vendor images locally for recovery. The standby image sync includes configured
+overlays. A new vendor build requires new overlays and scans; do not carry an
+old override forward.
+
+Deploy the committed Compose and verifier changes through the assured
+control-plane source workflow. Then update the private `.env` and recreate
+only the services with changed overlays through the guarded host maintenance path.
+Preserve the previous image IDs and configuration for rollback, run the native
+gateway neighbor seed after the control-plane restart, and verify FLS, farm
+registration, and the exact loaded image IDs. Do not recreate game map workers.
+
+The November 2026 package overlays update musl, zlib, and related Alpine
+packages. They do not replace the vendor-bundled .NET runtime; its remaining
+scanner findings require a qualified vendor republish.
+
 The default game image remains the vendor image selected by `DUNE_IMAGE_TAG`.
 An operator can opt into a locally qualified runtime with `DUNE_GAME_IMAGE`
 and `DUNE_RUNTIME_SECURITY_APPROVAL_FILE`. This changes only game workers;
 RabbitMQ and the remaining control-plane images retain their own references.
+
+## Automatic local qualification
+
+Set `DUNE_AUTO_QUALIFY_GAME_IMAGE=true` in the protected production `.env` to
+qualify a fresh runtime for every loaded vendor image. The hotfix updater first
+checks the Steam package without applying the old image pin, loads the vendor
+image, then runs `scripts/qualify-game-runtime.py` on `kspls0`. The builder uses
+the exact vendor image ID as its base, upgrades a hash-pinned wheel in the
+embedded Python site-packages, and removes build/development packages. It
+compares the entire game payload against the vendor image, allows changes only
+to embedded Python packaging, checks native linking and embedded Python, then
+scans a saved image tar with pinned Trivy. It writes private evidence and an
+approval only after all checks pass. The updater verifies that approval before
+changing the image override and entering the guarded backup/restart path.
+
+The output is version-bound under
+`backups/admin-panel/runtime-security-auto/auto-<vendor-tag>-<vendor-id>/`.
+The builder is idempotent for an unchanged approved image. If qualification
+fails, the updater clears the custom override and uses the official vendor
+image; it records a per-image failure stamp and retries after
+`DUNE_AUTO_QUALIFY_RETRY_SECONDS` (default 21600). The saved report and approval
+remain private. Run the builder directly to stage and inspect an approval
+without changing the live environment:
+
+```sh
+python3 scripts/qualify-game-runtime.py .env
+```
+
+The generated approval uses schema 2. Its `imageId` is Docker's loaded image
+ID; `scanImageId` is the image-config digest inside the exact tar passed to
+Trivy. The verifier binds both identities to the hash-pinned evidence. Schema 1
+manual approvals remain accepted.
 
 Use a named local image in the reserved `snape/dune-server:` namespace. Never
 retag the vendor image. Keep the approval and its evidence inside the workspace,

@@ -157,7 +157,7 @@ services:
       start_period: 5s
 
   postgres:
-    image: ${DUNE_POSTGRES_SECURITY_IMAGE:-snape/dune-postgres:security-17.4-alpine321-fc13}
+    image: ${DUNE_POSTGRES_SECURITY_IMAGE:-snape/dune-postgres:security-17.4-alpine321-fc13-libxslt-20261111}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:02
     environment:
@@ -307,7 +307,7 @@ services:
         ipv4_address: 172.31.240.42
 
   director:
-    image: registry.funcom.com/funcom/self-hosting/seabass-server-bg-director:${DUNE_IMAGE_TAG}
+    image: ${DUNE_DIRECTOR_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-bg-director:${DUNE_IMAGE_TAG}}
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "director"]
     # Director currently terminates on malformed login envelopes instead of
     # rejecting them. Keep the control plane self-healing while the upstream
@@ -360,7 +360,7 @@ services:
         ipv4_address: 172.31.240.5
 
   text-router:
-    image: registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}
+    image: ${DUNE_TEXT_ROUTER_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-text-router:${DUNE_IMAGE_TAG}}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:06
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "text-router"]
@@ -413,7 +413,7 @@ services:
         ipv4_address: 172.31.240.6
 
   gateway:
-    image: registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}
+    image: ${DUNE_GATEWAY_IMAGE:-registry.funcom.com/funcom/self-hosting/seabass-server-gateway:${DUNE_IMAGE_TAG}}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:28
     entrypoint: ["/usr/local/bin/dune-secret-env-wrapper.sh", "gateway"]
@@ -889,7 +889,7 @@ services:
       DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED: ${DUNE_ADMIN_RESTORE_DRILL_EXECUTION_ENABLED:-false}
       DUNE_RESTORE_DRILL_HOST_WORKSPACE: ${DUNE_RESTORE_DRILL_HOST_WORKSPACE:-${DUNE_RESTART_HOST_WORKSPACE:-}}
       DUNE_RESTORE_DRILL_DOCKER_SOCKET: /run/dune-docker-api/docker.sock
-      DUNE_RESTORE_DRILL_IMAGE: ${DUNE_RESTORE_DRILL_IMAGE:-${DUNE_POSTGRES_SECURITY_IMAGE:-snape/dune-postgres:security-17.4-alpine321-fc13}}
+      DUNE_RESTORE_DRILL_IMAGE: ${DUNE_RESTORE_DRILL_IMAGE:-${DUNE_POSTGRES_SECURITY_IMAGE:-snape/dune-postgres:security-17.4-alpine321-fc13-libxslt-20261111}}
       DUNE_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS: ${DUNE_RESTORE_DRILL_MAX_BACKUP_AGE_HOURS:-36}
       DUNE_RESTORE_DRILL_MAX_RESTORE_SECONDS: ${DUNE_RESTORE_DRILL_MAX_RESTORE_SECONDS:-900}
       DUNE_RESTORE_DRILL_MEMORY_MIB: ${DUNE_RESTORE_DRILL_MEMORY_MIB:-2048}
@@ -1283,7 +1283,7 @@ services:
       start_period: 10s
 
   admin-panel-ingress:
-    image: ${DUNE_ADMIN_INGRESS_IMAGE:-snape/dune-admin-caddy:security-2.11.3}
+    image: ${DUNE_ADMIN_INGRESS_IMAGE:-snape/dune-admin-caddy:security-2.11.9}
     restart: unless-stopped
     mac_address: 02:42:ac:1f:f0:08
     depends_on:

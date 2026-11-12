@@ -272,8 +272,14 @@ cleanup() {
 trap cleanup EXIT
 
 printf '\nchecking Steam package tag against .env\n'
+auto_qualify="$(env_value DUNE_AUTO_QUALIFY_GAME_IMAGE)"
+auto_qualify="${DUNE_AUTO_QUALIFY_GAME_IMAGE:-${auto_qualify:-false}}"
+package_check_args=()
+if [[ "$auto_qualify" =~ ^(1|true|yes|on)$ ]]; then
+  package_check_args+=(--package-only)
+fi
 set +e
-./scripts/check-steam-update.sh "$env_file" 2>&1 | tee "$check_file"
+./scripts/check-steam-update.sh "$env_file" "${package_check_args[@]}" 2>&1 | tee "$check_file"
 check_rc="${PIPESTATUS[0]}"
 set -e
 
@@ -287,7 +293,11 @@ case "$check_rc" in
       printf '\nloading Funcom Docker images from Steam package\n'
       ./scripts/load-images.sh "$env_file"
       printf '\nwriting DUNE_IMAGE_TAG to %s\n' "$env_file"
-      ./scripts/check-steam-update.sh "$env_file" --write-env
+      ./scripts/check-steam-update.sh "$env_file" --write-env "${package_check_args[@]}"
+      # The systemd service loads .env into this process at start. Its old
+      # exported tag would otherwise override the value just written to disk
+      # in every later check and in Compose interpolation.
+      export DUNE_IMAGE_TAG="$(env_value DUNE_IMAGE_TAG)"
     elif grep -q 'status: same tag but Steam build changed' "$check_file"; then
       printf '\nreloading Funcom Docker images for changed Steam build under existing tag\n'
       ./scripts/load-images.sh "$env_file"
@@ -300,6 +310,56 @@ case "$check_rc" in
     die "Steam package is still incomplete or unreadable; not loading images or restarting"
     ;;
 esac
+
+if [[ "$auto_qualify" =~ ^(1|true|yes|on)$ ]]; then
+  [[ "$(hostname)" == "kspls0" ]] || die "automatic game image qualification requires kspls0"
+  game_tag="$(env_value DUNE_IMAGE_TAG)"
+  vendor_image="registry.funcom.com/funcom/self-hosting/seabass-server:$game_tag"
+  vendor_id="$(docker image inspect "$vendor_image" --format '{{.Id}}')"
+  [[ "$vendor_id" =~ ^sha256:[0-9a-f]{64}$ ]] || die "loaded vendor game image has no immutable ID"
+  qualification_state="backups/admin-panel/runtime-security-auto"
+  mkdir -p "$qualification_state"
+  chmod 700 "$qualification_state"
+  failure_marker="$qualification_state/failure-${game_tag}-${vendor_id:7:12}.stamp"
+  retry_seconds="$(env_value DUNE_AUTO_QUALIFY_RETRY_SECONDS)"
+  retry_seconds="${retry_seconds:-21600}"
+  [[ "$retry_seconds" =~ ^[0-9]+$ ]] || die "DUNE_AUTO_QUALIFY_RETRY_SECONDS must be an integer"
+  previous_game_image="$(env_value DUNE_GAME_IMAGE)"
+  attempt_qualification=true
+  if [[ -f "$failure_marker" && "$updated" != true ]]; then
+    last_attempt="$(stat -c %Y "$failure_marker")"
+    if (( $(date +%s) - last_attempt < retry_seconds )); then
+      attempt_qualification=false
+      printf 'qualified game image retry deferred for this vendor build\n'
+    fi
+  fi
+  if [[ "$attempt_qualification" == true ]]; then
+    printf '\nbuilding and qualifying local game image for %s\n' "$game_tag"
+    if qualification_json="$(python3 ./scripts/qualify-game-runtime.py "$env_file")"; then
+      read -r qualified_image approval_file < <(
+        python3 -c 'import json,sys; value=json.loads(sys.argv[1]); print(value["image"], value["approvalFile"])' "$qualification_json"
+      )
+      [[ "$qualified_image" == snape/dune-server:qualified-* && "$approval_file" == backups/admin-panel/runtime-security-auto/*/approval.json ]] \
+        || die "qualification returned an invalid image or approval path"
+      python3 ./scripts/update-env-file.py "$env_file" --allow-protected-link --quiet \
+        --set DUNE_GAME_IMAGE "$qualified_image" \
+        --set DUNE_RUNTIME_SECURITY_APPROVAL_FILE "$approval_file"
+      export DUNE_GAME_IMAGE="$qualified_image" DUNE_RUNTIME_SECURITY_APPROVAL_FILE="$approval_file"
+      python3 ./scripts/runtime-security.py "$env_file" --expected-tag "$game_tag" >/dev/null
+      rm -f "$failure_marker"
+      [[ "$previous_game_image" == "$qualified_image" ]] || updated=true
+      printf 'qualified game image approved: %s\n' "$qualified_image"
+    else
+      printf 'warning: local game image qualification failed; using official vendor game image\n' >&2
+      : >"$failure_marker"
+      chmod 600 "$failure_marker"
+      python3 ./scripts/update-env-file.py "$env_file" --allow-protected-link --quiet \
+        --set DUNE_GAME_IMAGE "" --set DUNE_RUNTIME_SECURITY_APPROVAL_FILE ""
+      export DUNE_GAME_IMAGE="" DUNE_RUNTIME_SECURITY_APPROVAL_FILE=""
+      [[ -z "$previous_game_image" ]] || updated=true
+    fi
+  fi
+fi
 
 printf '\nverifying final Steam/package state\n'
 ./scripts/check-steam-update.sh "$env_file"
@@ -327,8 +387,14 @@ fi
 
 printf '\nensuring active database branch for current image\n'
 ./scripts/apply-official-db-patches.sh "$env_file"
+for key in DUNE_GAME_DB_NAME DUNE_DATABASE DUNE_DB_NAME DUNE_PUBLIC_STATUS_DB_NAME; do
+  value="$(env_value "$key")"
+  [[ -z "$value" ]] || export "$key=$value"
+done
 
-COMPOSE_FILES="${COMPOSE_FILES:-$(./scripts/compose-files.sh "$env_file")}"
+# The configured list is only the base set. compose-files.sh appends generated
+# map workers and host-specific overlays, even when systemd exported that list.
+COMPOSE_FILES="$(./scripts/compose-files.sh "$env_file")"
 export COMPOSE_FILES
 
 compose_cmd=(docker compose)
@@ -385,7 +451,17 @@ printf '\nchecking live farm status\n'
 ./scripts/status.sh "$env_file"
 
 printf '\nchecking FLS publication health\n'
-./scripts/fls-publication-health.py "$env_file" --compose-files "$COMPOSE_FILES"
+fls_wait_seconds="$(env_value DUNE_FLS_PUBLICATION_WAIT_SECONDS)"
+fls_wait_seconds="${fls_wait_seconds:-420}"
+[[ "$fls_wait_seconds" =~ ^[0-9]+$ ]] || die "DUNE_FLS_PUBLICATION_WAIT_SECONDS must be an integer"
+fls_deadline=$((SECONDS + fls_wait_seconds))
+while ! ./scripts/fls-publication-health.py "$env_file" --compose-files "$COMPOSE_FILES"; do
+  if (( SECONDS >= fls_deadline )); then
+    die "FLS publication did not recover within ${fls_wait_seconds}s"
+  fi
+  printf 'FLS publication is settling after restart; checking again in 15s\n'
+  sleep 15
+done
 
 printf '\nchecking logoff timer runtime patch state\n'
 if ! ./scripts/patch-logoff-timers-runtime.sh --local --dry-run; then
