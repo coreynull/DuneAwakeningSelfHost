@@ -40,7 +40,7 @@ if [ "$target" = "all" ] && command -v docker >/dev/null 2>&1 && command -v bash
     esac
     case "$phase" in
       restart|start)
-        trap 'rc=$?; if [ "$rc" -eq 0 ]; then "$(dirname "$0")/sietches.sh" "${ENV_FILE:-.env}" reconcile --execute || echo "sietch reconcile failed after restart (non-fatal)" >&2; fi; exit "$rc"' EXIT
+        trap 'rc=$?; if [ "$rc" -eq 0 ]; then "$(dirname "$0")/sietches.sh" "${ENV_FILE:-.env}" reconcile --execute || rc=$?; fi; exit "$rc"' EXIT
         ;;
     esac
   fi
