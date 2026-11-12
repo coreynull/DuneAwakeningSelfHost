@@ -250,6 +250,16 @@ def configured_map_services() -> set[str]:
     return services
 
 
+def autoscaler_dynamic_services() -> set[str]:
+    """Maps the autoscaler persists as dynamic (backups/admin-panel/autoscaler.json modes)."""
+    try:
+        modes = json.loads((ROOT / "backups/admin-panel/autoscaler.json").read_text()).get("modes", {})
+        return {str(service) for service, mode in modes.items() if mode == "dynamic"}
+    except (OSError, ValueError, AttributeError) as exc:
+        print(f"restart-api: autoscaler modes unreadable ({type(exc).__name__}); starting the full roster", file=sys.stderr, flush=True)
+        return set()
+
+
 def validate_request(payload: object, map_services: set[str]) -> dict:
     expected_keys = {"target", "services", "action", "phase", "dryRun", "fastDynamicStart", "jobId"}
     if not isinstance(payload, dict) or set(payload) != expected_keys:
@@ -335,6 +345,15 @@ def execute_restart(request: dict) -> dict:
         environment = admission.approved_environment(restart_environment(request))
         services = ([*sorted(configured_map_services()), *sorted(host_service_control.CONTROL)]
                     if request["target"] == "all" else request["services"])
+        # A fleet start must not boot every dynamic map at once: 30+ simultaneous
+        # starts exhaust RAM and Docker DNS and the always-on maps exit 98
+        # (lincoln 2026-11-12). Dynamic maps are started on demand by the autoscaler.
+        dynamic_skipped = []
+        if (request["target"] == "all" and request["phase"] in {"start", "restart"}
+                and os.environ.get("DUNE_RESTART_ALL_START_DYNAMIC_MAPS", "false").lower() not in {"1", "true", "yes", "on"}):
+            dynamic = autoscaler_dynamic_services()
+            dynamic_skipped = [service for service in services if service in dynamic]
+            services = [service for service in services if service not in dynamic]
         # Admit the entire batch before touching any existing container. New
         # containers and image/configuration changes require the native installer.
         for service in services:
@@ -342,6 +361,13 @@ def execute_restart(request: dict) -> dict:
         action = "stop" if request["phase"] in {"stop", "shutdown"} else request["phase"]
         if not request["dryRun"] and action in {"start", "restart"}:
             admission.run([str(ROOT / "scripts/validate-landsraad-coriolis-cycle.sh"), environment["ENV_FILE"]], env=environment)
+        for service in dynamic_skipped:
+            # Leave dynamic maps stopped (a restart stops any that are running).
+            if action == "restart":
+                admission.unchanged_environment()
+                admission.recover_existing(service, "stop", environment, dry_run=request["dryRun"], post_hooks=False)
+        if dynamic_skipped:
+            print(f"restart-api: fleet {action} left {len(dynamic_skipped)} dynamic maps stopped: {' '.join(dynamic_skipped)}", file=sys.stderr, flush=True)
         for service in services:
             try:
                 admission.unchanged_environment()
