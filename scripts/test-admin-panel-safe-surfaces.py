@@ -3903,7 +3903,7 @@ class AdminPanelSafeSurfacesTest(unittest.TestCase):
         self.assertFalse(started["lastError"])
         self.assertIn("deep-desert", self.panel.read_autoscaler_state()["demand"])
 
-    def test_autoscaler_start_uses_guarded_fast_start(self):
+    def test_autoscaler_start_uses_fast_single_map_path(self):
         original_control = self.panel.control_docker_service
         original_fast_start = self.panel.AUTOSCALER_FAST_START
         calls = []
@@ -3914,10 +3914,31 @@ class AdminPanelSafeSurfacesTest(unittest.TestCase):
         self.addCleanup(lambda: setattr(self.panel, "control_docker_service", original_control))
         self.addCleanup(lambda: setattr(self.panel, "AUTOSCALER_FAST_START", original_fast_start))
 
+        original_root = self.panel.ROOT
+        original_run = self.panel.subprocess.run
+        runs = []
+        self.panel.ROOT = ROOT
+        self.panel.subprocess.run = lambda argv, **kwargs: runs.append((argv, kwargs["env"])) or types.SimpleNamespace(
+            returncode=0, stdout="ok", stderr=""
+        )
+        self.addCleanup(lambda: setattr(self.panel, "ROOT", original_root))
+        self.addCleanup(lambda: setattr(self.panel.subprocess, "run", original_run))
+
         result = self.panel.autoscaler_service_action("arrakeen", "start")
 
+        # Demand starts must not go through guarded service-control (it refuses fast starts,
+        # needs 0 players and a backup); they use the restart-target fast single-map path.
         self.assertTrue(result["ok"])
-        self.assertEqual(calls, [("arrakeen", "start", True)])
+        self.assertEqual(calls, [])
+        self.assertEqual(len(runs), 1)
+        argv, env = runs[0]
+        self.assertTrue(str(argv[0]).endswith("scripts/restart-target.sh"))
+        self.assertEqual(env["DUNE_RESTART_TARGET"], "arrakeen")
+        self.assertEqual(env["DUNE_RESTART_PHASE"], "start")
+        self.assertEqual(env["DUNE_RESTART_FAST_DYNAMIC_START"], "true")
+        self.assertEqual(env["DUNE_RESTART_ALLOW_STATEFUL"], "false")
+        with self.assertRaises(PermissionError):
+            self.panel.autoscaler_service_action("postgres", "start")
         restart_source = (ROOT / "scripts" / "restart-target.sh").read_text(encoding="utf-8")
         patch_source = (ROOT / "scripts" / "patch-logoff-timers-runtime.sh").read_text(encoding="utf-8")
         self.assertIn("target_logoff_containers", restart_source)

@@ -4681,7 +4681,52 @@ def autoscaler_service_action(service, action):
         container = docker_service_container(service, running=True)
         result = docker_container_action(str(container.get("Id") or ""), "stop", timeout=120)
         return dict(result, service=service, action="stop", postHooks=False)
-    return control_docker_service(service, action, fast_dynamic_start=AUTOSCALER_FAST_START and action == "start")
+    if action == "start" and AUTOSCALER_FAST_START:
+        return autoscaler_fast_start(service)
+    return control_docker_service(service, action)
+
+
+def autoscaler_fast_start(service):
+    """Demand start of a dynamic map through restart-target.sh (delegates to the host restart-api /v1/restart).
+
+    Upstream 87d5ecd routed every service start through guarded host service-control and rejected
+    fast_dynamic_start outright, so with DUNE_AUTOSCALER_FAST_START=true (the default) the autoscaler
+    could never start a map. Guarded service-control also requires 0 players and a backup, which a
+    player-demand start can never satisfy. Manual recovery keeps the guarded path; only the autoscaler
+    uses this one.
+    """
+    service = str(service or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", service):
+        raise ValueError("invalid service name")
+    if service not in GAME_MAP_SERVICES:
+        raise PermissionError("autoscaler fast start is limited to configured map services")
+    script = ROOT / "scripts" / "restart-target.sh"
+    if not script.exists():
+        raise FileNotFoundError("scripts/restart-target.sh is unavailable")
+    env = os.environ.copy()
+    env.update({
+        "ENV_FILE": str(ENV_FILE),
+        "DUNE_RESTART_TARGET": service,
+        "DUNE_RESTART_SERVICES": service,
+        "DUNE_RESTART_ACTION": "restart",
+        "DUNE_RESTART_PHASE": "start",
+        "DUNE_RESTART_CHECK_STEAM_UPDATE": "false",
+        "DUNE_RESTART_ALLOW_STATEFUL": "false",
+        "DUNE_RESTART_FAST_DYNAMIC_START": "true",
+    })
+    completed = subprocess.run(
+        [str(script), service], cwd=ROOT, env=env, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=1800, check=False,
+    )
+    result = {
+        "ok": completed.returncode == 0, "service": service, "action": "start",
+        "exitCode": completed.returncode, "stdout": completed.stdout[-64 * 1024:], "stderr": completed.stderr[-64 * 1024:],
+        "postState": next((row for row in docker_service_inventory() if row["service"] == service), None),
+        "postHooks": True,
+    }
+    if not result["ok"]:
+        raise RuntimeError((result["stderr"] or result["stdout"] or f"autoscaler start exited {completed.returncode}")[-4000:])
+    return result
 
 
 def maintenance_restart_is_executing():
