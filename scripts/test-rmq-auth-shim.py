@@ -67,5 +67,42 @@ class ShimTest(unittest.TestCase):
         self.assertNotIn("s3cret-pw", log)
 
 
+    def test_player_login_enforced_through_text_router(self):
+        import contextlib, io
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        class Router(BaseHTTPRequestHandler):
+            def do_POST(self):
+                form = urllib.parse.parse_qs(self.rfile.read(int(self.headers["Content-Length"])).decode())
+                body = b"allow" if form.get("password") == ["good-token"] else b"deny"
+                self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        router = ThreadingHTTPServer(("127.0.0.1", 0), Router)
+        threading.Thread(target=router.serve_forever, daemon=True).start()
+        self.addCleanup(router.shutdown)
+        os.environ["TEXT_ROUTER_AUTH_BASE"] = f"http://127.0.0.1:{router.server_address[1]}"
+        os.environ["DUNE_RMQ_PLAYER_AUTH_ENFORCE"] = "true"
+        self.addCleanup(os.environ.__setitem__, "TEXT_ROUTER_AUTH_BASE", "http://127.0.0.1:9")
+        self.addCleanup(os.environ.pop, "DUNE_RMQ_PLAYER_AUTH_ENFORCE", None)
+        self.start("172.31.240.0/24")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(self.ask("user", username="0123456789ABCDEF", password="good-token"), "allow")
+            self.assertEqual(self.ask("user", username="0123456789ABCDEF", password="forged"), "deny")
+        # authorization checks for players are unchanged
+        self.assertEqual(self.ask("vhost", username="0123456789ABCDEF", vhost="/", ip="8.8.8.8"), "allow")
+        self.assertNotIn("good-token", err.getvalue())
+        self.assertNotIn("forged", err.getvalue())
+
+    def test_player_login_fails_closed_when_text_router_unreachable(self):
+        os.environ["DUNE_RMQ_PLAYER_AUTH_ENFORCE"] = "true"
+        self.addCleanup(os.environ.pop, "DUNE_RMQ_PLAYER_AUTH_ENFORCE", None)
+        self.start("172.31.240.0/24")
+        self.assertEqual(self.ask("user", username="0123456789ABCDEF", password="x"), "deny")
+
+
 if __name__ == "__main__":
     unittest.main()

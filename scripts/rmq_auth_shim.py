@@ -51,6 +51,24 @@ def service_source_allowed(form: dict[str, str]) -> bool:
 PLAYER_AUTH_SHADOW = os.environ.get("DUNE_RMQ_PLAYER_AUTH_SHADOW", "").lower() in ("1", "true", "yes", "on")
 
 
+# When true, a player-ID login (the /v0/auth/user password check) is decided by
+# text-router instead of being allowed unconditionally. Vhost, resource and topic
+# checks for players are unchanged. Each decision is logged without the password.
+PLAYER_AUTH_ENFORCE = os.environ.get("DUNE_RMQ_PLAYER_AUTH_ENFORCE", "").lower() in ("1", "true", "yes", "on")
+
+
+def enforce_player_login(path: str, body: bytes, content_type: str | None, username: str) -> bytes:
+    try:
+        answer = post_upstream(path, body, content_type)
+        verdict = answer.decode("utf-8", "replace").strip()
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        answer, verdict = b"deny", f"deny (text-router error: {type(exc).__name__})"
+    decision = answer if answer.strip().lower().startswith(b"allow") else b"deny"
+    print(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} player-auth-enforce user={username} "
+          f"text-router={verdict[:80]} decision={decision.decode('utf-8', 'replace')[:40]}", file=sys.stderr, flush=True)
+    return decision
+
+
 def shadow_player_auth(path: str, body: bytes, content_type: str | None, username: str) -> None:
     def run() -> None:
         try:
@@ -104,6 +122,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(b"allow")
                 return
             if PLAYER_USER_RE.match(username):
+                if PLAYER_AUTH_ENFORCE and self.path == "/v0/auth/user":
+                    self.respond(enforce_player_login(self.path, body, self.headers.get("Content-Type"), username))
+                    return
                 if PLAYER_AUTH_SHADOW and self.path == "/v0/auth/user":
                     shadow_player_auth(self.path, body, self.headers.get("Content-Type"), username)
                 self.respond(b"allow")

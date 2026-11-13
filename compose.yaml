@@ -267,6 +267,8 @@ services:
       DUNE_RMQ_SERVICE_USER_CIDRS: ${DUNE_RMQ_SERVICE_USER_CIDRS:-172.31.240.0/24}
       # Diagnostic only (default off): log text-router's verdict for player logins without changing the decision.
       DUNE_RMQ_PLAYER_AUTH_SHADOW: ${DUNE_RMQ_PLAYER_AUTH_SHADOW:-false}
+      # When true, player-ID logins are decided by text-router (fail closed) instead of always allowed.
+      DUNE_RMQ_PLAYER_AUTH_ENFORCE: ${DUNE_RMQ_PLAYER_AUTH_ENFORCE:-false}
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
