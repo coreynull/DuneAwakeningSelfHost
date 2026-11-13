@@ -51,5 +51,21 @@ class ShimTest(unittest.TestCase):
         self.assertEqual(self.ask("vhost", username=SERVICE, vhost="/", ip="8.8.8.8"), "allow")
 
 
+    def test_player_shadow_mode_keeps_allow_and_never_logs_password(self):
+        import contextlib, io
+        os.environ["DUNE_RMQ_PLAYER_AUTH_SHADOW"] = "true"
+        self.addCleanup(os.environ.pop, "DUNE_RMQ_PLAYER_AUTH_SHADOW", None)
+        self.start("172.31.240.0/24")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(self.ask("user", username="0123456789ABCDEF", password="s3cret-pw"), "allow")
+            import time
+            time.sleep(0.5)
+        log = err.getvalue()
+        self.assertIn("player-auth-shadow", log)
+        self.assertIn("user=0123456789ABCDEF", log)
+        self.assertNotIn("s3cret-pw", log)
+
+
 if __name__ == "__main__":
     unittest.main()

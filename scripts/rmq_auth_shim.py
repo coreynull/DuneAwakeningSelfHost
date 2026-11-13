@@ -4,6 +4,8 @@ import os
 import pathlib
 import sys
 import re
+import threading
+import time
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -40,6 +42,24 @@ def service_source_allowed(form: dict[str, str]) -> bool:
     except ValueError:
         return False
     return any(address in network for network in SERVICE_USER_CIDRS)
+
+
+# Diagnostic only: when true, player logins are still allowed exactly as before, but the
+# same request is also sent to text-router in the background and its verdict is logged
+# (username and verdict only, never the password). Used to judge whether player
+# authentication could be enforced through text-router.
+PLAYER_AUTH_SHADOW = os.environ.get("DUNE_RMQ_PLAYER_AUTH_SHADOW", "").lower() in ("1", "true", "yes", "on")
+
+
+def shadow_player_auth(path: str, body: bytes, content_type: str | None, username: str) -> None:
+    def run() -> None:
+        try:
+            verdict = post_upstream(path, body, content_type).decode("utf-8", "replace").strip()[:80]
+        except Exception as exc:  # noqa: BLE001 - diagnostic logging only
+            verdict = f"error:{type(exc).__name__}"
+        print(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} player-auth-shadow path={path} "
+              f"user={username} text-router={verdict}", file=sys.stderr, flush=True)
+    threading.Thread(target=run, daemon=True).start()
 
 
 def parse_form(body: bytes) -> dict[str, str]:
@@ -84,6 +104,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(b"allow")
                 return
             if PLAYER_USER_RE.match(username):
+                if PLAYER_AUTH_SHADOW and self.path == "/v0/auth/user":
+                    shadow_player_auth(self.path, body, self.headers.get("Content-Type"), username)
                 self.respond(b"allow")
                 return
 

@@ -265,6 +265,8 @@ services:
       DUNE_RMQ_MANAGEMENT_PASSWORD_FILE: /run/secrets/dune_announce_rmq_password
       # Passwordless service identities (sg|bgd|tr.<world>.*) are accepted only from the farm bridge.
       DUNE_RMQ_SERVICE_USER_CIDRS: ${DUNE_RMQ_SERVICE_USER_CIDRS:-172.31.240.0/24}
+      # Diagnostic only (default off): log text-router's verdict for player logins without changing the decision.
+      DUNE_RMQ_PLAYER_AUTH_SHADOW: ${DUNE_RMQ_PLAYER_AUTH_SHADOW:-false}
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
