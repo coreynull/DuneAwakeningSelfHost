@@ -379,19 +379,14 @@ def execute_restart(request: dict) -> dict:
             except Exception:
                 print(f"restart-api: admission failed at service={service} phase={request['phase']} action={action}: ", file=sys.stderr, flush=True)
                 raise
-        post_hook_note = "post-start hooks completed"
         if not request["dryRun"] and action in {"start", "restart"}:
-            try:
-                hook_environment = environment
-                if dynamic_skipped:
-                    # The full-farm hook path waits for every roster map to be running;
-                    # with dynamic maps left stopped, verify the started set instead.
-                    hook_environment = {**environment, "DUNE_RESTART_TARGET": "always-on"}
-                admission.post_start_hooks(hook_environment)
-            except Exception as exc:
-                post_hook_note = f"post-start hooks reported a failure (services were started): {type(exc).__name__}: {exc}"
-                print(f"restart-api: {post_hook_note}", file=sys.stderr, flush=True)
-        return {"ok": True, "exitCode": 0, "output": "Existing approved containers processed. " + post_hook_note,
+            hook_environment = environment
+            if dynamic_skipped:
+                # The full-farm hook path waits for every roster map to be running;
+                # with dynamic maps left stopped, verify the started set instead.
+                hook_environment = {**environment, "DUNE_RESTART_TARGET": "always-on"}
+            admission.post_start_hooks(hook_environment)
+        return {"ok": True, "exitCode": 0, "output": "Existing approved containers processed.",
                 "durationMs": int((time.monotonic() - started) * 1000)}
     except (host_service_control.Blocked, ValueError, KeyError) as exc:
         print(f"restart-api: admission rejected phase={request.get('phase')} target={request.get('target')}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)

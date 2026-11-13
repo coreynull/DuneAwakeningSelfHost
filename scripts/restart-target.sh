@@ -1529,7 +1529,7 @@ if [ "$phase" = "start" ]; then
       "$@" up --pull never -d --no-deps $services
       seed_gateway_neighbors
       if [ -x ./scripts/restart-post-start-health.sh ]; then
-        ./scripts/restart-post-start-health.sh || echo "post-start health wrapper reported failure; continuing (watchdog + farm state stand)" >&2
+        ./scripts/restart-post-start-health.sh
       elif [ -x ./scripts/verify-rmq-auth-path.sh ]; then
         ./scripts/verify-rmq-auth-path.sh
       fi
@@ -1576,7 +1576,7 @@ if [ "$phase" = "start" ]; then
   "$@" up --pull never -d --force-recreate --no-deps $services
   seed_gateway_neighbors
   if [ -x ./scripts/restart-post-start-health.sh ]; then
-    ./scripts/restart-post-start-health.sh || echo "post-start health wrapper reported failure; continuing (watchdog + farm state stand)" >&2
+    ./scripts/restart-post-start-health.sh
   elif [ -x ./scripts/verify-rmq-auth-path.sh ]; then
     ./scripts/verify-rmq-auth-path.sh
   fi
@@ -1591,7 +1591,7 @@ ensure_official_images_loaded
 "$@" up --pull never -d --force-recreate --no-deps $services
 seed_gateway_neighbors
 if [ -x ./scripts/restart-post-start-health.sh ]; then
-  ./scripts/restart-post-start-health.sh || echo "post-start health wrapper reported failure; continuing (watchdog + farm state stand)" >&2
+  ./scripts/restart-post-start-health.sh
 elif [ -x ./scripts/verify-rmq-auth-path.sh ]; then
   ./scripts/verify-rmq-auth-path.sh
 fi
