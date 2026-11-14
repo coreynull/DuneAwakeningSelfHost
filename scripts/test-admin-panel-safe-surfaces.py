@@ -5875,6 +5875,29 @@ class AdminPanelSafeSurfacesTest(unittest.TestCase):
         self.assertIn("dash_update_readiness_collector_up 1\n", texts[0][0])
         self.assertIn("dash_maintenance_outcome_collector_up 1\n", texts[0][0])
 
+    def test_metrics_database_byte_limits_are_configurable_and_bounded(self):
+        panel = self.panel
+        name = "DUNE_TEST_METRICS_MAX_DATABASE_BYTES"
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(name, None)
+            self.assertEqual(panel.metrics_database_byte_limit(name), 32 * 1024 * 1024)
+            for raw, expected in (("134217728", 134217728), ("", 32 * 1024 * 1024), ("junk", 32 * 1024 * 1024),
+                                  ("1", 1024 * 1024), ("99999999999999", 1024 * 1024 * 1024)):
+                os.environ[name] = raw
+                self.assertEqual(panel.metrics_database_byte_limit(name), expected, raw)
+        with tempfile.TemporaryDirectory() as temporary:
+            change_db = pathlib.Path(temporary) / "change.sqlite3"
+            ledger_db = pathlib.Path(temporary) / "ledger.sqlite3"
+            change_db.write_bytes(b"x" * 3000)
+            ledger_db.write_bytes(b"x" * 1000)
+            with mock.patch.object(panel, "CHANGE_INTELLIGENCE_DATABASE", change_db), mock.patch.object(panel, "AUDIT_LEDGER_DATABASE", ledger_db):
+                with mock.patch.object(panel, "CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES", 2000), mock.patch.object(panel, "AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES", 2000):
+                    self.assertTrue(panel.retained_metrics_should_defer())
+                with mock.patch.object(panel, "CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES", 4000), mock.patch.object(panel, "AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES", 2000):
+                    self.assertFalse(panel.retained_metrics_should_defer())
+                with mock.patch.object(panel, "CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES", 4000), mock.patch.object(panel, "AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES", 500):
+                    self.assertTrue(panel.retained_metrics_should_defer())
+
     def test_large_ledger_metrics_reuse_only_recent_verified_readiness(self):
         panel = self.panel
         original = dict(panel.CHANGE_INTELLIGENCE_STATUS_CACHE)

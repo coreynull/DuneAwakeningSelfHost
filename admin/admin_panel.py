@@ -565,7 +565,17 @@ CHANGE_INTELLIGENCE_STATUS_CACHE_GENERATION_LOCK = threading.Lock()
 # retained event's HMAC chain. Keep that expensive operation off the request
 # path once the retained ledger exceeds this bounded size; the verified
 # operator API remains available for deliberate reads.
-CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES = 32 * 1024 * 1024
+def metrics_database_byte_limit(variable):
+    """Size above which request-path ledger verification is deferred (default 32 MiB, bounded 1 MiB-1 GiB)."""
+    default = 32 * 1024 * 1024
+    try:
+        value = int(os.environ.get(variable, "") or default)
+    except ValueError:
+        value = default
+    return max(1024 * 1024, min(value, 1024 * 1024 * 1024))
+
+
+CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES = metrics_database_byte_limit("DUNE_CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES")
 METRICS_DOCUMENT_CACHE_SECONDS = max(0, min(int(os.environ.get("DUNE_ADMIN_METRICS_CACHE_SECONDS", "60")), 300))
 METRICS_DOCUMENT_CACHE_WAIT_SECONDS = 1.0
 METRICS_DOCUMENT_CACHE = {}
@@ -696,7 +706,7 @@ AUDIT_LEDGER_LOCK = threading.Lock()
 AUDIT_RECONCILIATION_LOCK = threading.Lock()
 AUDIT_LEDGER_STORE = None
 AUDIT_LEDGER_RUNTIME = {"ready": False, "lastError": "", "lastAppendAt": None, "lastSequence": 0}
-AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES = 32 * 1024 * 1024
+AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES = metrics_database_byte_limit("DUNE_ADMIN_AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES")
 CHANGE_CONTRACT_RUNTIME = {"issued": 0, "admitted": 0, "refused": 0, "lastIssuedAt": None, "lastAdmittedAt": None, "lastRefusalAt": None, "lastError": ""}
 
 
@@ -2282,6 +2292,8 @@ ENV_KEY_DEFINITIONS = {
     "DUNE_DESIRED_STATE_POLL_SECONDS": {"group": "Desired State", "secret": False, "restart": True, "why": "Continuous file/runtime attestation cadence from 15 to 3600 seconds."},
     "DUNE_CHANGE_INTELLIGENCE_ENABLED": {"group": "Change Intelligence", "secret": False, "restart": True, "why": "Records a tamper-evident operational timeline and correlates incidents with preceding changes."},
     "DUNE_CHANGE_INTELLIGENCE_STATUS_CACHE_SECONDS": {"group": "Change Intelligence", "secret": False, "restart": True, "why": "Single-flight reuse window for a verified ledger status and correlation view; artifact changes invalidate the integrity cache."},
+    "DUNE_CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES": {"group": "Change Intelligence", "secret": False, "restart": True, "why": "Change-timeline database size above which request-path metrics defer full HMAC-chain verification; default 32 MiB, bounded 1 MiB-1 GiB."},
+    "DUNE_ADMIN_AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES": {"group": "Admin Panel", "secret": False, "restart": True, "why": "Audit-ledger database size above which request-path metrics defer full HMAC-chain verification; default 32 MiB, bounded 1 MiB-1 GiB."},
     "DUNE_CHANGE_INTELLIGENCE_HISTORY_IMPORT_MAX_BYTES": {"group": "Change Intelligence", "secret": False, "restart": True, "why": "Bounded startup byte budget for importing rotated audit JSONL into the change timeline; default 64 MiB."},
     "DUNE_ADMIN_METRICS_CACHE_SECONDS": {"group": "Metrics", "secret": False, "restart": True, "why": "Reuse window for expensive label-safe metrics documents, bounded to 0–300 seconds; live autoscaler safety gauges bypass it."},
     "DUNE_CHANGE_INTELLIGENCE_POLICY": {"group": "Change Intelligence", "secret": False, "restart": True, "why": "Versioned event bounds, classification, impact, and correlation windows."},
@@ -7900,9 +7912,10 @@ def change_intelligence_metrics_status():
 
 
 def retained_metrics_should_defer():
-    for path in (CHANGE_INTELLIGENCE_DATABASE, AUDIT_LEDGER_DATABASE):
+    for path, limit in ((CHANGE_INTELLIGENCE_DATABASE, CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES),
+                        (AUDIT_LEDGER_DATABASE, AUDIT_LEDGER_METRICS_MAX_DATABASE_BYTES)):
         try:
-            if path.is_file() and path.stat().st_size > CHANGE_INTELLIGENCE_METRICS_MAX_DATABASE_BYTES:
+            if path.is_file() and path.stat().st_size > limit:
                 return True
         except OSError:
             return True
