@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hmac
 import ipaddress
 import os
 import pathlib
@@ -57,7 +58,21 @@ PLAYER_AUTH_SHADOW = os.environ.get("DUNE_RMQ_PLAYER_AUTH_SHADOW", "").lower() i
 PLAYER_AUTH_ENFORCE = os.environ.get("DUNE_RMQ_PLAYER_AUTH_ENFORCE", "").lower() in ("1", "true", "yes", "on")
 
 
+# DASH's own announcement/chat-command sender uses a player-format ID (default
+# A000000000000001) that text-router does not know. Under enforcement, that one
+# configured ID is accepted only with its configured secret; any other password
+# still goes to text-router (and is denied there).
+ANNOUNCE_USER = os.environ.get("DUNE_RMQ_ANNOUNCE_USER", "")
+ANNOUNCE_PASSWORD = read_secret_env("DUNE_RMQ_ANNOUNCE_PASSWORD") if ANNOUNCE_USER else ""
+
+
 def enforce_player_login(path: str, body: bytes, content_type: str | None, username: str) -> bytes:
+    if ANNOUNCE_USER and ANNOUNCE_PASSWORD and username == ANNOUNCE_USER:
+        supplied = parse_form(body).get("password", "")
+        if hmac.compare_digest(supplied.encode(), ANNOUNCE_PASSWORD.encode()):
+            print(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} player-auth-enforce user={username} "
+                  f"announce-sender=secret-match decision=allow", file=sys.stderr, flush=True)
+            return b"allow"
     try:
         answer = post_upstream(path, body, content_type)
         verdict = answer.decode("utf-8", "replace").strip()

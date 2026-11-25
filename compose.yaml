@@ -269,6 +269,9 @@ services:
       DUNE_RMQ_PLAYER_AUTH_SHADOW: ${DUNE_RMQ_PLAYER_AUTH_SHADOW:-false}
       # When true, player-ID logins are decided by text-router (fail closed) instead of always allowed.
       DUNE_RMQ_PLAYER_AUTH_ENFORCE: ${DUNE_RMQ_PLAYER_AUTH_ENFORCE:-false}
+      # DASH's announcement sender (a player-format ID) is accepted under enforcement only with its own secret.
+      DUNE_RMQ_ANNOUNCE_USER: ${DUNE_ANNOUNCE_CHAT_USER:-A000000000000001}
+      DUNE_RMQ_ANNOUNCE_PASSWORD_FILE: /run/secrets/dune_announce_chat_password
     command:
       - /workspace/scripts/rmq_auth_shim.py
     volumes:
@@ -279,6 +282,7 @@ services:
       - .:/workspace:ro
     secrets:
       - dune_announce_rmq_password
+      - dune_announce_chat_password
     depends_on:
       - text-router
     networks:

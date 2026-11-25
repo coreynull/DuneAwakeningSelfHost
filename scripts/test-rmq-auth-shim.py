@@ -97,6 +97,24 @@ class ShimTest(unittest.TestCase):
         self.assertNotIn("good-token", err.getvalue())
         self.assertNotIn("forged", err.getvalue())
 
+    def test_announce_sender_accepted_only_with_its_secret(self):
+        import contextlib, io, tempfile
+        secret = tempfile.NamedTemporaryFile("w", delete=False)
+        secret.write("announce-secret" + chr(10)); secret.close()
+        self.addCleanup(os.unlink, secret.name)
+        os.environ.update({"DUNE_RMQ_PLAYER_AUTH_ENFORCE": "true", "DUNE_RMQ_ANNOUNCE_USER": "A000000000000001",
+                           "DUNE_RMQ_ANNOUNCE_PASSWORD_FILE": secret.name})
+        for key in ("DUNE_RMQ_PLAYER_AUTH_ENFORCE", "DUNE_RMQ_ANNOUNCE_USER", "DUNE_RMQ_ANNOUNCE_PASSWORD_FILE"):
+            self.addCleanup(os.environ.pop, key, None)
+        self.start("172.31.240.0/24")  # text-router unreachable: anything not matched locally is denied
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(self.ask("user", username="A000000000000001", password="announce-secret"), "allow")
+            self.assertEqual(self.ask("user", username="A000000000000001", password="wrong"), "deny")
+            self.assertEqual(self.ask("user", username="A000000000000001", password=""), "deny")
+            self.assertEqual(self.ask("user", username="0123456789ABCDEF", password="announce-secret"), "deny")
+        self.assertNotIn("announce-secret", err.getvalue())
+
     def test_player_login_fails_closed_when_text_router_unreachable(self):
         os.environ["DUNE_RMQ_PLAYER_AUTH_ENFORCE"] = "true"
         self.addCleanup(os.environ.pop, "DUNE_RMQ_PLAYER_AUTH_ENFORCE", None)
